@@ -1,0 +1,19 @@
+{
+  "name": "fantasy-football-mvp",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Full-stack fantasy football lineup assistant MVP.",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "predev": "npm run build --workspace @fantasy-football/shared",
+    "dev": "npm run dev --workspace @fantasy-football/api & npm run dev --workspace @fantasy-football/web",
+    "build": "npm run build --workspace @fantasy-football/shared && npm run build --workspace @fantasy-football/api && npm run build --workspace @fantasy-football/web",
+    "typecheck": "npm run build --workspace @fantasy-football/shared && npm run typecheck --workspace @fantasy-football/api && npm run typecheck --workspace @fantasy-football/web"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

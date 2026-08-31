@@ -1,0 +1,86 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String        @id @default(cuid())
+  email        String        @unique
+  displayName  String
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  teams        FantasyTeam[]
+}
+
+model FantasyTeam {
+  id            String         @id @default(cuid())
+  userId        String
+  name          String
+  scoringFormat ScoringFormat @default(HALF_PPR)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rosterPlayers RosterPlayer[]
+  reports       WeeklyReport[]
+}
+
+model Player {
+  id              String         @id @default(cuid())
+  name            String
+  position        Position
+  nflTeam         String
+  byeWeek         Int
+  injuryStatus    InjuryStatus   @default(HEALTHY)
+  projectedPoints Float
+  targetShare     Float?
+  rosterPlayers   RosterPlayer[]
+}
+
+model RosterPlayer {
+  id       String      @id @default(cuid())
+  teamId   String
+  playerId String
+  team     FantasyTeam @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  player   Player      @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, playerId])
+}
+
+model WeeklyReport {
+  id        String      @id @default(cuid())
+  teamId    String
+  week      Int
+  summary   String
+  payload   Json
+  createdAt DateTime    @default(now())
+  team      FantasyTeam @relation(fields: [teamId], references: [id], onDelete: Cascade)
+}
+
+enum Position {
+  QB
+  RB
+  WR
+  TE
+  K
+  DST
+}
+
+enum ScoringFormat {
+  STANDARD
+  HALF_PPR
+  PPR
+}
+
+enum InjuryStatus {
+  HEALTHY
+  QUESTIONABLE
+  DOUBTFUL
+  OUT
+  IR
+  SUSPENDED
+}
+
