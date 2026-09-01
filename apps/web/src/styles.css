@@ -114,6 +114,20 @@ h3 {
   box-shadow: 0 14px 40px rgba(23, 33, 27, 0.07);
 }
 
+.workflow-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 340px);
+  gap: 20px;
+  align-items: start;
+  margin-top: 28px;
+}
+
+.workflow-main {
+  display: grid;
+  gap: 20px;
+  min-width: 0;
+}
+
 .report-panel {
   overflow: hidden;
 }
@@ -125,6 +139,164 @@ h3 {
   gap: 16px;
   padding: 20px;
   border-bottom: 1px solid #e6ebe1;
+}
+
+.control-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(180px, 1fr));
+  gap: 16px;
+  padding: 20px;
+}
+
+.field {
+  display: grid;
+  gap: 8px;
+  color: #344536;
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+.field select {
+  width: 100%;
+  min-height: 42px;
+  padding: 0 12px;
+  border: 1px solid #bfcbb8;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #17211b;
+}
+
+.roster-header {
+  align-items: center;
+}
+
+.roster-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 104px;
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid #bfcbb8;
+  border-radius: 999px;
+  background: #f5f7f2;
+  color: #344536;
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+.player-list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.player-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(260px, 0.9fr) 96px;
+  gap: 16px;
+  align-items: center;
+  min-height: 84px;
+  padding: 14px 20px;
+  border-top: 1px solid #eef1eb;
+  background: #ffffff;
+}
+
+.player-row.is-selected {
+  background: #f1f6ec;
+}
+
+.player-main {
+  min-width: 0;
+}
+
+.player-main strong {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.player-main span {
+  color: #5c665e;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.player-meta {
+  display: grid;
+  grid-template-columns: 64px 54px minmax(96px, 1fr);
+  gap: 10px;
+  margin: 0;
+}
+
+.player-meta div {
+  display: grid;
+  gap: 2px;
+}
+
+.player-meta dt {
+  color: #657268;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.player-meta dd {
+  margin: 0;
+  color: #243128;
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+.primary-button,
+.secondary-button,
+.generate-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  border-radius: 6px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.primary-button,
+.generate-button {
+  border: 1px solid #183b35;
+  background: #183b35;
+  color: #ffffff;
+}
+
+.secondary-button {
+  border: 1px solid #bfcbb8;
+  background: #ffffff;
+  color: #344536;
+}
+
+.primary-button:disabled,
+.secondary-button:disabled,
+.generate-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.roster-action {
+  width: 96px;
+}
+
+.generate-panel {
+  position: sticky;
+  top: 20px;
+}
+
+.generate-body {
+  display: grid;
+  gap: 14px;
+  padding: 20px;
+}
+
+.generate-button {
+  width: 100%;
 }
 
 .summary {
@@ -195,16 +367,39 @@ h3 {
 }
 
 .loading,
-.error {
+.error,
+.state-message,
+.stale-message,
+.warning-panel {
   margin-top: 28px;
   padding: 18px 20px;
   border-radius: 8px;
   background: #ffffff;
 }
 
+.state-message {
+  margin: 0;
+  color: #4d574f;
+}
+
 .error {
   border: 1px solid #e3a29b;
   color: #9c2f25;
+}
+
+.inline-error,
+.stale-message {
+  margin: 0;
+}
+
+.stale-message,
+.warning-panel {
+  border: 1px solid #d9c27a;
+  color: #634d12;
+}
+
+.warning-panel {
+  margin-top: 28px;
 }
 
 @media (max-width: 780px) {
@@ -222,6 +417,31 @@ h3 {
     grid-template-columns: 1fr;
   }
 
+  .workflow-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .generate-panel {
+    position: static;
+  }
+
+  .control-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .player-row {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .player-meta {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .roster-action {
+    width: 100%;
+  }
+
   .lineup-row {
     grid-template-columns: 48px minmax(0, 1fr);
   }
@@ -231,4 +451,3 @@ h3 {
     justify-self: start;
   }
 }
-
