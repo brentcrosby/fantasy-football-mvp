@@ -1,4 +1,10 @@
-import type { Player, RecommendationReport, RecommendationRequest } from "@fantasy-football/shared";
+import type {
+  PersistedFantasyTeam,
+  Player,
+  RecommendationApiRequest,
+  RecommendationReport,
+  TeamWriteRequest
+} from "@fantasy-football/shared";
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:4000";
 
@@ -6,7 +12,7 @@ export async function fetchPlayers(): Promise<Player[]> {
   const response = await fetch(`${apiBaseUrl}/api/players`);
 
   if (!response.ok) {
-    throw new Error(await buildRequestError(response, "Could not load available players."));
+    throw await buildRequestError(response, "Could not load available players.");
   }
 
   const payload = (await response.json()) as { players?: Player[] };
@@ -18,7 +24,25 @@ export async function fetchPlayers(): Promise<Player[]> {
   return payload.players;
 }
 
-export async function generateRecommendation(request: RecommendationRequest): Promise<RecommendationReport> {
+export async function fetchTeam(teamId: string): Promise<PersistedFantasyTeam> {
+  const response = await fetch(`${apiBaseUrl}/api/teams/${encodeURIComponent(teamId)}`);
+
+  if (!response.ok) {
+    throw await buildRequestError(response, "Could not load the saved team.");
+  }
+
+  return readTeamResponse(response);
+}
+
+export async function createTeam(request: TeamWriteRequest): Promise<PersistedFantasyTeam> {
+  return writeTeam("/api/teams", "POST", request, "Could not save the team.");
+}
+
+export async function updateTeam(teamId: string, request: TeamWriteRequest): Promise<PersistedFantasyTeam> {
+  return writeTeam(`/api/teams/${encodeURIComponent(teamId)}`, "PUT", request, "Could not update the team.");
+}
+
+export async function generateRecommendation(request: RecommendationApiRequest): Promise<RecommendationReport> {
   const response = await fetch(`${apiBaseUrl}/api/recommendations`, {
     method: "POST",
     headers: {
@@ -28,7 +52,7 @@ export async function generateRecommendation(request: RecommendationRequest): Pr
   });
 
   if (!response.ok) {
-    throw new Error(await buildRequestError(response, "Could not generate a lineup recommendation."));
+    throw await buildRequestError(response, "Could not generate a lineup recommendation.");
   }
 
   const payload = (await response.json()) as { report?: RecommendationReport };
@@ -40,14 +64,47 @@ export async function generateRecommendation(request: RecommendationRequest): Pr
   return payload.report;
 }
 
-async function buildRequestError(response: Response, fallbackMessage: string): Promise<string> {
+export class ApiRequestError extends Error {
+  constructor(
+    message: string,
+    readonly status: number
+  ) {
+    super(message);
+  }
+}
+
+async function writeTeam(path: string, method: "POST" | "PUT", request: TeamWriteRequest, fallbackMessage: string) {
+  const response = await fetch(`${apiBaseUrl}${path}`, {
+    method,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(request)
+  });
+
+  if (!response.ok) {
+    throw await buildRequestError(response, fallbackMessage);
+  }
+
+  return readTeamResponse(response);
+}
+
+async function readTeamResponse(response: Response): Promise<PersistedFantasyTeam> {
+  const payload = (await response.json()) as { team?: PersistedFantasyTeam };
+
+  if (!payload.team) {
+    throw new Error("The team response was missing the team.");
+  }
+
+  return payload.team;
+}
+
+async function buildRequestError(response: Response, fallbackMessage: string): Promise<ApiRequestError> {
   try {
     const payload = (await response.json()) as { error?: string; issues?: Array<{ message?: string }> };
     const issueMessages = payload.issues?.map((issue) => issue.message).filter(Boolean);
     const detail = issueMessages && issueMessages.length > 0 ? ` ${issueMessages.join(" ")}` : "";
 
-    return `${payload.error ?? fallbackMessage}${detail}`;
+    return new ApiRequestError(`${payload.error ?? fallbackMessage}${detail}`, response.status);
   } catch {
-    return `${fallbackMessage} Request failed with status ${response.status}.`;
+    return new ApiRequestError(`${fallbackMessage} Request failed with status ${response.status}.`, response.status);
   }
 }

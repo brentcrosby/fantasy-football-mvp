@@ -8,7 +8,12 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate dev"
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:migrate:deploy": "prisma migrate deploy",
+    "prisma:seed": "prisma db seed",
+    "test:prepare": "tsx prisma/prepareTestDatabase.ts",
+    "pretest": "npm run build --workspace @fantasy-football/shared",
+    "test": "npm run test:prepare && tsx --test --test-concurrency=1 src/**/*.test.ts"
   },
   "dependencies": {
     "@fantasy-football/shared": "file:../../packages/shared",
@@ -25,6 +30,8 @@
     "prisma": "^6.14.0",
     "tsx": "^4.20.0",
     "typescript": "^5.9.0"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
   }
 }
-

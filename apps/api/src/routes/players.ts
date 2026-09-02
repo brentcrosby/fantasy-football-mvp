@@ -1,10 +1,12 @@
 import { Router } from "express";
 
-import { samplePlayers } from "../data/sampleData.js";
+import { toPlayerDto } from "../lib/mappers.js";
+import { prisma } from "../lib/prisma.js";
 
 export const playersRouter = Router();
 
-playersRouter.get("/", (_request, response) => {
-  response.json({ players: samplePlayers });
-});
+playersRouter.get("/", async (_request, response) => {
+  const players = await prisma.player.findMany({ orderBy: { name: "asc" } });
 
+  response.json({ players: players.map(toPlayerDto) });
+});

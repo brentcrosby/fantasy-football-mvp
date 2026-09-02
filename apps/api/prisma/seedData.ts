@@ -1,11 +1,17 @@
-import { DEFAULT_LINEUP_SLOTS, type LeagueSettings, type Player, type RosterPlayer } from "@fantasy-football/shared";
+import type { InjuryStatus, Position } from "@prisma/client";
 
-export const sampleSettings: LeagueSettings = {
-  scoringFormat: "HALF_PPR",
-  lineupSlots: DEFAULT_LINEUP_SLOTS
-};
+export interface SeedPlayer {
+  id: string;
+  name: string;
+  position: Position;
+  nflTeam: string;
+  byeWeek: number;
+  injuryStatus: InjuryStatus;
+  projectedPoints: number;
+  targetShare: number | null;
+}
 
-export const samplePlayers: Player[] = [
+export const seedPlayers: SeedPlayer[] = [
   {
     id: "p1",
     name: "Josh Allen",
@@ -13,7 +19,8 @@ export const samplePlayers: Player[] = [
     nflTeam: "BUF",
     byeWeek: 7,
     injuryStatus: "HEALTHY",
-    projectedPoints: 22.8
+    projectedPoints: 22.8,
+    targetShare: null
   },
   {
     id: "p2",
@@ -82,7 +89,8 @@ export const samplePlayers: Player[] = [
     nflTeam: "DAL",
     byeWeek: 10,
     injuryStatus: "HEALTHY",
-    projectedPoints: 8.9
+    projectedPoints: 8.9,
+    targetShare: null
   },
   {
     id: "p9",
@@ -91,7 +99,8 @@ export const samplePlayers: Player[] = [
     nflTeam: "NYJ",
     byeWeek: 9,
     injuryStatus: "HEALTHY",
-    projectedPoints: 8.4
+    projectedPoints: 8.4,
+    targetShare: null
   },
   {
     id: "p10",
@@ -114,6 +123,3 @@ export const samplePlayers: Player[] = [
     targetShare: 0.17
   }
 ];
-
-export const sampleRoster: RosterPlayer[] = samplePlayers.map((player) => ({ player }));
-

@@ -87,7 +87,8 @@ h3 {
 }
 
 .header-actions span,
-.status-pill {
+.status-pill,
+.persistence-status {
   display: inline-flex;
   align-items: center;
   min-height: 34px;
@@ -156,7 +157,8 @@ h3 {
   font-weight: 800;
 }
 
-.field select {
+.field select,
+.field input {
   width: 100%;
   min-height: 42px;
   padding: 0 12px;
@@ -164,6 +166,46 @@ h3 {
   border-radius: 6px;
   background: #ffffff;
   color: #17211b;
+}
+
+.team-controls-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 140px;
+  gap: 16px;
+  align-items: end;
+  padding: 20px;
+}
+
+.save-team-button {
+  width: 100%;
+}
+
+.persistence-status {
+  white-space: nowrap;
+}
+
+.status-saved {
+  border-color: #9db897;
+  background: #f1f6ec;
+  color: #28532f;
+}
+
+.status-dirty,
+.status-unsaved {
+  border-color: #d9c27a;
+  background: #fffaf0;
+  color: #634d12;
+}
+
+.status-load-error,
+.status-save-error {
+  border-color: #e3a29b;
+  background: #fff4f2;
+  color: #9c2f25;
+}
+
+.team-message {
+  margin: 0 20px 20px;
 }
 
 .roster-header {
@@ -426,6 +468,10 @@ h3 {
   }
 
   .control-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .team-controls-body {
     grid-template-columns: 1fr;
   }
 

@@ -1,24 +1,16 @@
 import { Router } from "express";
 
-import { buildLineupRecommendation } from "@fantasy-football/shared";
+import { buildLineupRecommendation, type RecommendationRequest } from "@fantasy-football/shared";
 
-import { sampleRoster, sampleSettings } from "../data/sampleData.js";
-import { recommendationRequestSchema } from "../lib/validation.js";
+import { ApiError } from "../lib/apiError.js";
+import { toPlayerDto } from "../lib/mappers.js";
+import { prisma } from "../lib/prisma.js";
+import { recommendationApiRequestSchema } from "../lib/validation.js";
 
 export const recommendationsRouter = Router();
 
-recommendationsRouter.get("/demo", (_request, response) => {
-  const report = buildLineupRecommendation({
-    week: 1,
-    settings: sampleSettings,
-    roster: sampleRoster
-  });
-
-  response.json({ report });
-});
-
-recommendationsRouter.post("/", (request, response) => {
-  const parsed = recommendationRequestSchema.safeParse(request.body);
+recommendationsRouter.post("/", async (request, response) => {
+  const parsed = recommendationApiRequestSchema.safeParse(request.body);
 
   if (!parsed.success) {
     response.status(400).json({
@@ -28,8 +20,19 @@ recommendationsRouter.post("/", (request, response) => {
     return;
   }
 
-  response.json({
-    report: buildLineupRecommendation(parsed.data)
-  });
-});
+  const players = await prisma.player.findMany({ where: { id: { in: parsed.data.rosterPlayerIds } } });
+  const playersById = new Map(players.map((player) => [player.id, player]));
+  const unknownPlayerIds = parsed.data.rosterPlayerIds.filter((playerId) => !playersById.has(playerId));
 
+  if (unknownPlayerIds.length > 0) {
+    throw new ApiError(422, "One or more players were not found.", { unknownPlayerIds });
+  }
+
+  const recommendationRequest: RecommendationRequest = {
+    week: parsed.data.week,
+    settings: parsed.data.settings,
+    roster: parsed.data.rosterPlayerIds.map((playerId) => ({ player: toPlayerDto(playersById.get(playerId)!) }))
+  };
+
+  response.json({ report: buildLineupRecommendation(recommendationRequest) });
+});
