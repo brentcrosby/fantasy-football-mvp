@@ -5,6 +5,7 @@ Fantasy Football Lineup Assistant is a full-stack MVP for managing a fantasy ros
 ## MVP Scope
 
 - Create and review a fantasy team roster.
+- Register, sign in, and manage teams owned by the current account.
 - Store player position, NFL team, bye week, injury status, and weekly projection data.
 - Generate a weekly lineup report with starters, bench players, risk notes, and position needs.
 - Keep the first recommendation engine rule-based and explainable before adding any predictive model.
@@ -14,6 +15,7 @@ Fantasy Football Lineup Assistant is a full-stack MVP for managing a fantasy ros
 - React, TypeScript, and Vite for the frontend.
 - Node.js, Express, and TypeScript for the API.
 - PostgreSQL with Prisma for team, settings, player, and roster persistence.
+- Server-side sessions stored as token hashes with `HttpOnly` browser cookies.
 - Shared TypeScript package for roster and recommendation types.
 
 ## Project Structure
@@ -64,7 +66,9 @@ npm run dev
 
 The API defaults to `http://localhost:4000`. The Vite frontend will print its local URL in the terminal.
 
-The browser stores only the current fantasy team ID in local storage. The team name, scoring settings, ordered lineup slots, and roster remain authoritative in PostgreSQL.
+Accounts, sessions, team ownership, scoring settings, ordered lineup slots, and rosters remain authoritative in PostgreSQL. Passwords are hashed with Node.js `scrypt`; raw session tokens are never stored in the database.
+
+Existing teams created before the authentication migration are preserved as unowned legacy records. Authenticated team routes expose only teams owned by the current account.
 
 ## Database Commands
 
@@ -85,7 +89,7 @@ The initial migration is `20260831210000_init_team_persistence`. Do not reset an
 
 ## Integration Tests
 
-Integration tests use the same PostgreSQL server but require the isolated `test` schema. The test command verifies that `DATABASE_URL` contains exactly `schema=test`, applies migrations, runs the player seed twice to verify idempotency, and then starts the API tests.
+Integration tests use the same PostgreSQL server but require the isolated `test` schema. The test command verifies that `DATABASE_URL` contains exactly `schema=test`, applies migrations, runs the player seed twice to verify idempotency, and then starts the API tests. The suite covers authentication lifecycle behavior and prevents cross-user team access.
 
 ```bash
 DATABASE_URL="postgresql://postgres:postgres@localhost:5432/fantasy_football_mvp?schema=test" npm test
@@ -95,4 +99,6 @@ The cleanup guard refuses to run against the development `public` schema. Tests 
 
 ## Current Status
 
-The application uses PostgreSQL-backed players and teams with a deterministic lineup engine. Authentication, external league imports, live NFL data, and saved weekly reports remain later milestones.
+The application now uses secure cookie sessions, user-owned PostgreSQL teams, and a deterministic lineup engine. Saved weekly reports and deployment are the remaining V1 milestones. External league imports and live NFL data remain later features.
+
+Before public deployment, serve the application over HTTPS, configure `WEB_ORIGIN` to the deployed frontend origin, and add request throttling to the authentication routes.

@@ -50,6 +50,16 @@ export interface TeamWriteRequest {
   rosterPlayerIds: string[];
 }
 
+export interface AuthenticatedUser {
+  id: string;
+  email: string;
+}
+
+export interface AuthCredentials {
+  email: string;
+  password: string;
+}
+
 export interface SlotAssignment {
   slot: LineupSlot;
   player: Player;

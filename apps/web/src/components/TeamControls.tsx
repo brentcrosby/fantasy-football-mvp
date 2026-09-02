@@ -18,7 +18,11 @@ interface TeamControlsProps {
   saveError: string | null;
   saveDisabled: boolean;
   controlsDisabled: boolean;
+  teams: PersistedFantasyTeam[];
+  selectedTeamId: string | null;
   onNameChange: (name: string) => void;
+  onSelectTeam: (teamId: string) => void;
+  onNewTeam: () => void;
   onSave: () => void;
 }
 
@@ -30,7 +34,11 @@ export function TeamControls({
   saveError,
   saveDisabled,
   controlsDisabled,
+  teams,
+  selectedTeamId,
   onNameChange,
+  onSelectTeam,
+  onNewTeam,
   onSave
 }: TeamControlsProps) {
   return (
@@ -43,6 +51,27 @@ export function TeamControls({
         <span className={`persistence-status status-${status}`} aria-live="polite">
           {STATUS_LABELS[status]}
         </span>
+      </div>
+
+      <div className="team-picker-row">
+        <label className="field" htmlFor="saved-team">
+          <span>Saved Team</span>
+          <select
+            id="saved-team"
+            value={selectedTeamId ?? ""}
+            disabled={controlsDisabled || teams.length === 0}
+            onChange={(event) => onSelectTeam(event.target.value)}
+          >
+            {selectedTeamId === null && <option value="">New unsaved team</option>}
+            {teams.map((team) => (
+              <option key={team.id} value={team.id}>{team.name}</option>
+            ))}
+          </select>
+        </label>
+
+        <button className="utility-button" type="button" disabled={controlsDisabled} onClick={onNewTeam}>
+          + New Team
+        </button>
       </div>
 
       <div className="team-controls-body">
@@ -69,3 +98,4 @@ export function TeamControls({
     </section>
   );
 }
+import type { PersistedFantasyTeam } from "@fantasy-football/shared";
