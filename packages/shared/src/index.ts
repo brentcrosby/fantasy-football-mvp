@@ -75,6 +75,21 @@ export interface RecommendationReport {
   summary: string;
 }
 
+export interface SavedWeeklyReport {
+  id: string;
+  fantasyTeamId: string;
+  teamName: string;
+  week: number;
+  settings: LeagueSettings;
+  roster: RosterPlayer[];
+  report: RecommendationReport;
+  createdAt: string;
+}
+
+export interface SaveWeeklyReportRequest {
+  week: number;
+}
+
 const FLEX_POSITIONS: Position[] = ["RB", "WR", "TE"];
 const DEPTH_POSITIONS: Position[] = ["QB", "RB", "WR", "TE"];
 const UNAVAILABLE_STATUSES: InjuryStatus[] = ["OUT", "IR", "SUSPENDED"];

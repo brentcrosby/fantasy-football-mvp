@@ -7,6 +7,7 @@ import {
   type PersistedFantasyTeam,
   type Player,
   type RecommendationReport,
+  type SavedWeeklyReport,
   type ScoringFormat,
   type TeamWriteRequest
 } from "@fantasy-football/shared";
@@ -14,6 +15,7 @@ import {
 import { AuthScreen, type AuthMode } from "./components/AuthScreen";
 import { LeagueControls, scoringFormatLabel } from "./components/LeagueControls";
 import { ReportPanel } from "./components/ReportPanel";
+import { ReportHistory } from "./components/ReportHistory";
 import { RiskPanel } from "./components/RiskPanel";
 import { RosterEditor } from "./components/RosterEditor";
 import { TeamControls, type TeamPersistenceStatus } from "./components/TeamControls";
@@ -22,10 +24,12 @@ import {
   fetchCurrentUser,
   fetchPlayers,
   fetchTeams,
+  fetchWeeklyReports,
   generateRecommendation,
   login,
   logout,
   register,
+  saveWeeklyReport,
   updateTeam
 } from "./lib/api";
 
@@ -56,14 +60,20 @@ export function App() {
   const [lineupSlots, setLineupSlots] = useState<LineupSlot[]>([...DEFAULT_LINEUP_SLOTS]);
   const [report, setReport] = useState<RecommendationReport | null>(null);
   const [reportInputs, setReportInputs] = useState<ReportInputs | null>(null);
+  const [savedReports, setSavedReports] = useState<SavedWeeklyReport[]>([]);
+  const [viewedSavedReport, setViewedSavedReport] = useState<SavedWeeklyReport | null>(null);
+  const [currentReportSavedId, setCurrentReportSavedId] = useState<string | null>(null);
   const [playersError, setPlayersError] = useState<string | null>(null);
   const [recommendationError, setRecommendationError] = useState<string | null>(null);
+  const [reportsError, setReportsError] = useState<string | null>(null);
   const [teamLoadError, setTeamLoadError] = useState<string | null>(null);
   const [teamSaveError, setTeamSaveError] = useState<string | null>(null);
   const [loadErrorBlocksSave, setLoadErrorBlocksSave] = useState(false);
   const [playersLoading, setPlayersLoading] = useState(true);
   const [teamLoading, setTeamLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [reportsLoading, setReportsLoading] = useState(false);
+  const [savingReport, setSavingReport] = useState(false);
   const [savingTeam, setSavingTeam] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
   const [authSubmitting, setAuthSubmitting] = useState(false);
@@ -74,7 +84,11 @@ export function App() {
   const currentTeamSnapshot = buildTeamSnapshot(teamName, scoringFormat, lineupSlots, selectedPlayers);
   const isTeamDirty = savedTeamSnapshot === null || !teamSnapshotsMatch(currentTeamSnapshot, savedTeamSnapshot);
   const isReportStale = report !== null && reportInputs !== null && !inputsMatch(currentInputs, reportInputs);
-  const unfilledSlots = report ? findUnfilledSlots(lineupSlots, report.starters.map((assignment) => assignment.slot)) : [];
+  const displayedReport = viewedSavedReport?.report ?? report;
+  const displayedLineupSlots = viewedSavedReport?.settings.lineupSlots ?? lineupSlots;
+  const unfilledSlots = displayedReport
+    ? findUnfilledSlots(displayedLineupSlots, displayedReport.starters.map((assignment) => assignment.slot))
+    : [];
   const persistenceStatus = getPersistenceStatus({
     teamLoading,
     savingTeam,
@@ -118,6 +132,37 @@ export function App() {
     };
   }, []);
 
+  useEffect(() => {
+    let active = true;
+
+    if (!currentUser || !teamId) {
+      setSavedReports([]);
+      setReportsError(null);
+      setReportsLoading(false);
+      return () => {
+        active = false;
+      };
+    }
+
+    setReportsLoading(true);
+    setReportsError(null);
+
+    void fetchWeeklyReports(teamId)
+      .then((reports) => {
+        if (active) setSavedReports(reports);
+      })
+      .catch((apiError) => {
+        if (active) setReportsError(errorMessage(apiError, "Something went wrong loading saved reports."));
+      })
+      .finally(() => {
+        if (active) setReportsLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [currentUser, teamId]);
+
   async function loadWorkspace() {
     setPlayersLoading(true);
     setTeamLoading(true);
@@ -159,6 +204,7 @@ export function App() {
     setLineupSlots([...team.settings.lineupSlots]);
     setSelectedPlayers(rosterPlayers);
     setSavedTeamSnapshot(buildTeamSnapshot(team.name, team.settings.scoringFormat, team.settings.lineupSlots, rosterPlayers));
+    clearReportView();
   }
 
   function resetTeamDraft() {
@@ -170,6 +216,10 @@ export function App() {
     setSavedTeamSnapshot(null);
     setReport(null);
     setReportInputs(null);
+    setSavedReports([]);
+    setReportsError(null);
+    setViewedSavedReport(null);
+    setCurrentReportSavedId(null);
     setTeamLoadError(null);
     setTeamSaveError(null);
     setLoadErrorBlocksSave(false);
@@ -180,8 +230,6 @@ export function App() {
 
     if (team) {
       hydrateTeam(team);
-      setReport(null);
-      setReportInputs(null);
       setTeamSaveError(null);
     }
   }
@@ -293,11 +341,39 @@ export function App() {
 
       setReport(nextReport);
       setReportInputs(currentInputs);
+      setViewedSavedReport(null);
+      setCurrentReportSavedId(null);
     } catch (apiError) {
       setRecommendationError(errorMessage(apiError, "Something went wrong generating a lineup."));
     } finally {
       setSubmitting(false);
     }
+  }
+
+  async function handleSaveReport() {
+    if (!teamId || !report || isReportStale || isTeamDirty || savingReport || viewedSavedReport) {
+      return;
+    }
+
+    setSavingReport(true);
+    setReportsError(null);
+
+    try {
+      const savedReport = await saveWeeklyReport(teamId, { week: report.week });
+      setSavedReports((currentReports) => [savedReport, ...currentReports]);
+      setCurrentReportSavedId(savedReport.id);
+    } catch (apiError) {
+      setReportsError(errorMessage(apiError, "Something went wrong saving the report."));
+    } finally {
+      setSavingReport(false);
+    }
+  }
+
+  function clearReportView() {
+    setReport(null);
+    setReportInputs(null);
+    setViewedSavedReport(null);
+    setCurrentReportSavedId(null);
   }
 
   if (authLoading || !currentUser) {
@@ -405,11 +481,34 @@ export function App() {
             <button className="generate-button" type="button" disabled={selectedPlayers.length === 0 || submitting} onClick={handleGenerateLineup}>
               {submitting ? "Generating..." : "Generate Lineup"}
             </button>
+            <button
+              className="utility-button save-report-button"
+              type="button"
+              disabled={
+                !report ||
+                isReportStale ||
+                isTeamDirty ||
+                !teamId ||
+                savingReport ||
+                viewedSavedReport !== null ||
+                currentReportSavedId !== null
+              }
+              onClick={handleSaveReport}
+            >
+              {savingReport
+                ? "Saving..."
+                : currentReportSavedId
+                  ? "Report Saved"
+                  : viewedSavedReport
+                    ? "Viewing Saved"
+                    : "Save Report"}
+            </button>
+            {report && isTeamDirty && <p className="save-hint">Save the current team changes before archiving this report.</p>}
           </div>
         </aside>
       </div>
 
-      {report && (
+      {displayedReport && (
         <>
           {unfilledSlots.length > 0 && (
             <section className="warning-panel" aria-live="polite">
@@ -418,10 +517,35 @@ export function App() {
           )}
 
           <div className="dashboard-grid">
-            <ReportPanel report={report} />
-            <RiskPanel report={report} />
+            <ReportPanel report={displayedReport} statusLabel={viewedSavedReport ? "Saved snapshot" : "Rule-based"} />
+            <div className="dashboard-side">
+              <RiskPanel report={displayedReport} />
+              <ReportHistory
+                reports={savedReports}
+                loading={reportsLoading}
+                error={reportsError}
+                selectedReportId={viewedSavedReport?.id ?? null}
+                currentReportAvailable={report !== null}
+                onSelect={setViewedSavedReport}
+                onShowCurrent={() => setViewedSavedReport(null)}
+              />
+            </div>
           </div>
         </>
+      )}
+
+      {!displayedReport && teamId && (
+        <div className="history-only">
+          <ReportHistory
+            reports={savedReports}
+            loading={reportsLoading}
+            error={reportsError}
+            selectedReportId={null}
+            currentReportAvailable={false}
+            onSelect={setViewedSavedReport}
+            onShowCurrent={() => setViewedSavedReport(null)}
+          />
+        </div>
       )}
     </main>
   );

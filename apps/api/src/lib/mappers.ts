@@ -1,5 +1,11 @@
-import type { Player as PrismaPlayer, Prisma } from "@prisma/client";
-import type { PersistedFantasyTeam, Player } from "@fantasy-football/shared";
+import type { Player as PrismaPlayer, Prisma, WeeklyReport } from "@prisma/client";
+import type {
+  PersistedFantasyTeam,
+  Player,
+  RecommendationReport,
+  RosterPlayer,
+  SavedWeeklyReport
+} from "@fantasy-football/shared";
 
 export const teamWithRoster = {
   rosterMemberships: {
@@ -37,5 +43,21 @@ export function toTeamDto(team: TeamWithRoster): PersistedFantasyTeam {
       .sort((left, right) => left.player.name.localeCompare(right.player.name)),
     createdAt: team.createdAt.toISOString(),
     updatedAt: team.updatedAt.toISOString()
+  };
+}
+
+export function toSavedWeeklyReportDto(savedReport: WeeklyReport): SavedWeeklyReport {
+  return {
+    id: savedReport.id,
+    fantasyTeamId: savedReport.fantasyTeamId,
+    teamName: savedReport.teamName,
+    week: savedReport.week,
+    settings: {
+      scoringFormat: savedReport.scoringFormat,
+      lineupSlots: savedReport.lineupSlots
+    },
+    roster: savedReport.rosterSnapshot as unknown as RosterPlayer[],
+    report: savedReport.reportSnapshot as unknown as RecommendationReport,
+    createdAt: savedReport.createdAt.toISOString()
   };
 }

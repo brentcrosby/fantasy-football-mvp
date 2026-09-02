@@ -3,7 +3,13 @@ import type { Server } from "node:http";
 import { once } from "node:events";
 import { after, before, test } from "node:test";
 
-import type { AuthenticatedUser, PersistedFantasyTeam, RecommendationReport, TeamWriteRequest } from "@fantasy-football/shared";
+import type {
+  AuthenticatedUser,
+  PersistedFantasyTeam,
+  RecommendationReport,
+  SavedWeeklyReport,
+  TeamWriteRequest
+} from "@fantasy-football/shared";
 
 import { app } from "./app.js";
 import { prisma } from "./lib/prisma.js";
@@ -93,6 +99,11 @@ test("requires authentication for team routes", async () => {
 
   assert.equal(list.status, 401);
   assert.equal(create.status, 401);
+  assert.equal((await apiRequest("/api/teams/unowned/reports", { cookie: null })).status, 401);
+  assert.equal(
+    (await apiRequest("/api/teams/unowned/reports", { method: "POST", body: { week: 1 }, cookie: null })).status,
+    401
+  );
   assert.equal((await apiRequest("/api/auth/logout", { method: "POST", cookie: null })).status, 204);
 });
 
@@ -359,6 +370,97 @@ test("canonical recommendations exclude OUT and bye-week players from starters",
 
   assert.equal(starterIds.has("p1"), false, "bye-week player should not start");
   assert.equal(starterIds.has("p10"), false, "OUT player should not start");
+});
+
+test("saves and lists immutable weekly report snapshots", async () => {
+  const originalPlayerIds = ["p1", "p2", "p4", "p6", "p8", "p9"];
+  const created = await createTeam("report snapshot", originalPlayerIds);
+  const saveResponse = await apiRequest(`/api/teams/${created.id}/reports`, {
+    method: "POST",
+    body: { week: 7 }
+  });
+
+  assert.equal(saveResponse.status, 201);
+  const saved = (saveResponse.body as { report: SavedWeeklyReport }).report;
+  assert.equal(saved.fantasyTeamId, created.id);
+  assert.equal(saved.teamName, `${testNamePrefix} report snapshot`);
+  assert.equal(saved.week, 7);
+  assert.deepEqual(saved.settings.lineupSlots, defaultSettings.lineupSlots);
+  assert.deepEqual(
+    saved.roster.map(({ player }) => player.id).sort(),
+    [...originalPlayerIds].sort()
+  );
+  assert.equal(saved.report.week, 7);
+
+  const updateResponse = await apiRequest(`/api/teams/${created.id}`, {
+    method: "PUT",
+    body: buildTeamBody("report snapshot updated", ["p3"])
+  });
+  assert.equal(updateResponse.status, 200);
+
+  const listResponse = await apiRequest(`/api/teams/${created.id}/reports`);
+  assert.equal(listResponse.status, 200);
+  const listed = (listResponse.body as { reports: SavedWeeklyReport[] }).reports;
+  assert.equal(listed.length, 1);
+  assert.equal(listed[0].id, saved.id);
+  assert.equal(listed[0].teamName, `${testNamePrefix} report snapshot`);
+  assert.deepEqual(
+    listed[0].roster.map(({ player }) => player.id).sort(),
+    [...originalPlayerIds].sort()
+  );
+});
+
+test("isolates saved reports by team owner", async () => {
+  const owner = await createAccount("report-owner");
+  const otherUser = await createAccount("report-other");
+  const createResponse = await apiRequest("/api/teams", {
+    method: "POST",
+    body: buildTeamBody("private reports", ["p1", "p2"]),
+    cookie: owner.cookie
+  });
+  const team = (createResponse.body as { team: PersistedFantasyTeam }).team;
+
+  const ownerSave = await apiRequest(`/api/teams/${team.id}/reports`, {
+    method: "POST",
+    body: { week: 3 },
+    cookie: owner.cookie
+  });
+  assert.equal(ownerSave.status, 201);
+
+  assert.equal((await apiRequest(`/api/teams/${team.id}/reports`, { cookie: otherUser.cookie })).status, 404);
+  assert.equal(
+    (
+      await apiRequest(`/api/teams/${team.id}/reports`, {
+        method: "POST",
+        body: { week: 3 },
+        cookie: otherUser.cookie
+      })
+    ).status,
+    404
+  );
+});
+
+test("validates weekly report requests and rejects empty rosters", async () => {
+  const team = await createTeam("report validation", ["p1"]);
+  const invalidCases = [
+    { week: 0 },
+    { week: 19 },
+    { week: 1.5 },
+    { week: 1, report: { summary: "client supplied" } }
+  ];
+
+  for (const body of invalidCases) {
+    const response = await apiRequest(`/api/teams/${team.id}/reports`, { method: "POST", body });
+    assert.equal(response.status, 400);
+  }
+
+  const emptyTeam = await createTeam("empty report roster", []);
+  const emptyRosterResponse = await apiRequest(`/api/teams/${emptyTeam.id}/reports`, {
+    method: "POST",
+    body: { week: 1 }
+  });
+  assert.equal(emptyRosterResponse.status, 422);
+  assert.equal((emptyRosterResponse.body as { error: string }).error, "Add at least one player before saving a weekly report.");
 });
 
 async function createTeam(name: string, rosterPlayerIds: string[]): Promise<PersistedFantasyTeam> {

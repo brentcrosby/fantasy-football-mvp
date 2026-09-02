@@ -10,7 +10,7 @@ Build a concise full-stack project that proves application development fundament
 2. User creates or selects an owned fantasy team.
 3. User manages the roster and selects scoring format and NFL week.
 4. App generates recommended starters, bench, risk notes, and roster needs.
-5. User can later save weekly reports.
+5. User saves a weekly report and can reopen its immutable snapshot later.
 
 ## Implementation Milestones
 
@@ -18,7 +18,7 @@ Build a concise full-stack project that proves application development fundament
 2. [x] Build rule-based recommendation engine.
 3. [x] Add manual roster management backed by Postgres.
 4. [x] Add auth and user-owned teams.
-5. [ ] Save weekly recommendation reports.
+5. [x] Save weekly recommendation reports.
 6. [ ] Deploy frontend, API, and database.
 
 ## Recommendation Rules

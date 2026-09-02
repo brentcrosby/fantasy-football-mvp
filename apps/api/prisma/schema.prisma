@@ -17,6 +17,7 @@ model FantasyTeam {
   updatedAt         DateTime           @updatedAt
   user              User?              @relation(fields: [userId], references: [id], onDelete: Cascade)
   rosterMemberships RosterMembership[]
+  weeklyReports     WeeklyReport[]
 
   @@index([userId])
 }
@@ -63,6 +64,21 @@ model RosterMembership {
 
   @@id([fantasyTeamId, playerId])
   @@index([playerId])
+}
+
+model WeeklyReport {
+  id             String        @id @default(cuid())
+  fantasyTeamId  String
+  teamName       String        @db.VarChar(100)
+  week           Int
+  scoringFormat  ScoringFormat
+  lineupSlots    LineupSlot[]
+  rosterSnapshot Json
+  reportSnapshot Json
+  createdAt      DateTime      @default(now())
+  fantasyTeam    FantasyTeam   @relation(fields: [fantasyTeamId], references: [id], onDelete: Cascade)
+
+  @@index([fantasyTeamId, createdAt])
 }
 
 enum Position {

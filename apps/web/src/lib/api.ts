@@ -5,6 +5,8 @@ import type {
   Player,
   RecommendationApiRequest,
   RecommendationReport,
+  SavedWeeklyReport,
+  SaveWeeklyReportRequest,
   TeamWriteRequest
 } from "@fantasy-football/shared";
 
@@ -107,6 +109,45 @@ export async function generateRecommendation(request: RecommendationApiRequest):
 
   if (!payload.report) {
     throw new Error("The recommendation response was missing the report.");
+  }
+
+  return payload.report;
+}
+
+export async function fetchWeeklyReports(teamId: string): Promise<SavedWeeklyReport[]> {
+  const response = await apiFetch(`/api/teams/${encodeURIComponent(teamId)}/reports`);
+
+  if (!response.ok) {
+    throw await buildRequestError(response, "Could not load saved reports.");
+  }
+
+  const payload = (await response.json()) as { reports?: SavedWeeklyReport[] };
+
+  if (!Array.isArray(payload.reports)) {
+    throw new Error("The saved reports response was missing the reports list.");
+  }
+
+  return payload.reports;
+}
+
+export async function saveWeeklyReport(
+  teamId: string,
+  request: SaveWeeklyReportRequest
+): Promise<SavedWeeklyReport> {
+  const response = await apiFetch(`/api/teams/${encodeURIComponent(teamId)}/reports`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(request)
+  });
+
+  if (!response.ok) {
+    throw await buildRequestError(response, "Could not save the weekly report.");
+  }
+
+  const payload = (await response.json()) as { report?: SavedWeeklyReport };
+
+  if (!payload.report) {
+    throw new Error("The saved report response was missing the report.");
   }
 
   return payload.report;

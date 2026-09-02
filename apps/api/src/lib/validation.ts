@@ -50,6 +50,12 @@ export const teamWriteRequestSchema = z
 
 export const teamIdSchema = z.string().trim().min(1).max(100);
 
+export const saveWeeklyReportRequestSchema = z
+  .object({
+    week: z.number().int().min(1).max(18)
+  })
+  .strict();
+
 export const authCredentialsSchema = z
   .object({
     email: z.string().trim().toLowerCase().email().max(320),
