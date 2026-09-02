@@ -1,10 +1,12 @@
 import { Router, type Response } from "express";
+import type { Prisma } from "@prisma/client";
+import { buildLineupRecommendation, type RecommendationRequest } from "@fantasy-football/shared";
 
 import { ApiError } from "../lib/apiError.js";
-import { teamWithRoster, toTeamDto } from "../lib/mappers.js";
+import { teamWithRoster, toPlayerDto, toSavedWeeklyReportDto, toTeamDto } from "../lib/mappers.js";
 import { prisma } from "../lib/prisma.js";
 import { getAuthenticatedUser, requireAuth } from "../lib/session.js";
-import { teamIdSchema, teamWriteRequestSchema } from "../lib/validation.js";
+import { saveWeeklyReportRequestSchema, teamIdSchema, teamWriteRequestSchema } from "../lib/validation.js";
 
 export const teamsRouter = Router();
 teamsRouter.use(requireAuth);
@@ -48,6 +50,79 @@ teamsRouter.post("/", async (request, response) => {
   });
 
   response.status(201).json({ team: toTeamDto(team) });
+});
+
+teamsRouter.get("/:teamId/reports", async (request, response) => {
+  const user = getAuthenticatedUser(response);
+  const teamId = parseTeamId(request.params.teamId, response);
+
+  if (!teamId) {
+    return;
+  }
+
+  await assertOwnedTeam(teamId, user.id);
+
+  const reports = await prisma.weeklyReport.findMany({
+    where: { fantasyTeamId: teamId },
+    orderBy: { createdAt: "desc" }
+  });
+
+  response.json({ reports: reports.map(toSavedWeeklyReportDto) });
+});
+
+teamsRouter.post("/:teamId/reports", async (request, response) => {
+  const user = getAuthenticatedUser(response);
+  const teamId = parseTeamId(request.params.teamId, response);
+  const parsed = saveWeeklyReportRequestSchema.safeParse(request.body);
+
+  if (!teamId) {
+    return;
+  }
+
+  if (!parsed.success) {
+    response.status(400).json({ error: "Invalid weekly report request.", issues: parsed.error.issues });
+    return;
+  }
+
+  const team = await prisma.fantasyTeam.findFirst({
+    where: { id: teamId, userId: user.id },
+    include: teamWithRoster
+  });
+
+  if (!team) {
+    throw new ApiError(404, "Team not found.");
+  }
+
+  if (team.rosterMemberships.length === 0) {
+    throw new ApiError(422, "Add at least one player before saving a weekly report.");
+  }
+
+  const roster = team.rosterMemberships
+    .map(({ player }) => ({ player: toPlayerDto(player) }))
+    .sort((left, right) => left.player.name.localeCompare(right.player.name));
+  const recommendationRequest: RecommendationRequest = {
+    week: parsed.data.week,
+    settings: {
+      scoringFormat: team.scoringFormat,
+      lineupSlots: team.lineupSlots
+    },
+    roster
+  };
+  const report = buildLineupRecommendation(recommendationRequest);
+
+  const savedReport = await prisma.weeklyReport.create({
+    data: {
+      fantasyTeamId: team.id,
+      teamName: team.name,
+      week: parsed.data.week,
+      scoringFormat: team.scoringFormat,
+      lineupSlots: team.lineupSlots,
+      rosterSnapshot: roster as unknown as Prisma.InputJsonValue,
+      reportSnapshot: report as unknown as Prisma.InputJsonValue
+    }
+  });
+
+  response.status(201).json({ report: toSavedWeeklyReportDto(savedReport) });
 });
 
 teamsRouter.get("/:teamId", async (request, response) => {
@@ -139,5 +214,13 @@ async function assertPlayersExist(
 
   if (unknownPlayerIds.length > 0) {
     throw new ApiError(422, "One or more players were not found.", { unknownPlayerIds });
+  }
+}
+
+async function assertOwnedTeam(teamId: string, userId: string): Promise<void> {
+  const team = await prisma.fantasyTeam.findFirst({ where: { id: teamId, userId }, select: { id: true } });
+
+  if (!team) {
+    throw new ApiError(404, "Team not found.");
   }
 }

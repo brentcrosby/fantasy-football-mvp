@@ -2,9 +2,10 @@ import type { RecommendationReport } from "@fantasy-football/shared";
 
 interface ReportPanelProps {
   report: RecommendationReport;
+  statusLabel?: string;
 }
 
-export function ReportPanel({ report }: ReportPanelProps) {
+export function ReportPanel({ report, statusLabel = "Rule-based" }: ReportPanelProps) {
   return (
     <section className="panel report-panel" aria-labelledby="report-heading">
       <div className="section-header">
@@ -12,7 +13,7 @@ export function ReportPanel({ report }: ReportPanelProps) {
           <p className="eyebrow">Week {report.week}</p>
           <h2 id="report-heading">Lineup Report</h2>
         </div>
-        <span className="status-pill">Rule-based</span>
+        <span className="status-pill">{statusLabel}</span>
       </div>
 
       <p className="summary">{report.summary}</p>
