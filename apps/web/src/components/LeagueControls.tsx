@@ -9,11 +9,12 @@ const SCORING_FORMAT_LABELS: Record<ScoringFormat, string> = {
 interface LeagueControlsProps {
   week: number;
   scoringFormat: ScoringFormat;
+  disabled: boolean;
   onWeekChange: (week: number) => void;
   onScoringFormatChange: (scoringFormat: ScoringFormat) => void;
 }
 
-export function LeagueControls({ week, scoringFormat, onWeekChange, onScoringFormatChange }: LeagueControlsProps) {
+export function LeagueControls({ week, scoringFormat, disabled, onWeekChange, onScoringFormatChange }: LeagueControlsProps) {
   return (
     <section className="panel league-controls" aria-labelledby="league-controls-heading">
       <div className="section-header">
@@ -26,7 +27,7 @@ export function LeagueControls({ week, scoringFormat, onWeekChange, onScoringFor
       <div className="control-grid">
         <label className="field" htmlFor="week">
           <span>NFL Week</span>
-          <select id="week" value={week} onChange={(event) => onWeekChange(Number(event.target.value))}>
+          <select id="week" value={week} disabled={disabled} onChange={(event) => onWeekChange(Number(event.target.value))}>
             {Array.from({ length: 18 }, (_value, index) => index + 1).map((weekNumber) => (
               <option key={weekNumber} value={weekNumber}>
                 Week {weekNumber}
@@ -40,6 +41,7 @@ export function LeagueControls({ week, scoringFormat, onWeekChange, onScoringFor
           <select
             id="scoring-format"
             value={scoringFormat}
+            disabled={disabled}
             onChange={(event) => onScoringFormatChange(event.target.value as ScoringFormat)}
           >
             {Object.entries(SCORING_FORMAT_LABELS).map(([value, label]) => (

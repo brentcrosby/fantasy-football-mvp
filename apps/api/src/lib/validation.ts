@@ -1,22 +1,51 @@
 import { z } from "zod";
 
-export const playerSchema = z.object({
-  id: z.string().min(1),
-  name: z.string().min(1),
-  position: z.enum(["QB", "RB", "WR", "TE", "K", "DST"]),
-  nflTeam: z.string().min(1),
-  byeWeek: z.number().int().min(1).max(18),
-  injuryStatus: z.enum(["HEALTHY", "QUESTIONABLE", "DOUBTFUL", "OUT", "IR", "SUSPENDED"]),
-  projectedPoints: z.number().min(0),
-  targetShare: z.number().min(0).max(1).optional()
-});
+const scoringFormatSchema = z.enum(["STANDARD", "HALF_PPR", "PPR"]);
+const lineupSlotSchema = z.enum(["QB", "RB", "WR", "TE", "K", "DST", "FLEX"]);
+const settingsSchema = z
+  .object({
+    scoringFormat: scoringFormatSchema,
+    lineupSlots: z.array(lineupSlotSchema).min(1).max(30)
+  })
+  .strict();
+const playerIdSchema = z.string().trim().min(1).max(100);
 
-export const recommendationRequestSchema = z.object({
-  week: z.number().int().min(1).max(18),
-  settings: z.object({
-    scoringFormat: z.enum(["STANDARD", "HALF_PPR", "PPR"]),
-    lineupSlots: z.array(z.enum(["QB", "RB", "WR", "TE", "K", "DST", "FLEX"])).min(1)
-  }),
-  roster: z.array(z.object({ player: playerSchema })).min(1)
-});
+function uniquePlayerIds(minimum: number) {
+  return z
+    .array(playerIdSchema)
+    .min(minimum)
+    .max(30)
+    .superRefine((playerIds, context) => {
+      const seenIds = new Set<string>();
 
+      playerIds.forEach((playerId, index) => {
+        if (seenIds.has(playerId)) {
+          context.addIssue({
+            code: "custom",
+            message: `Duplicate player ID: ${playerId}.`,
+            path: [index]
+          });
+        }
+
+        seenIds.add(playerId);
+      });
+    });
+}
+
+export const recommendationApiRequestSchema = z
+  .object({
+    week: z.number().int().min(1).max(18),
+    settings: settingsSchema,
+    rosterPlayerIds: uniquePlayerIds(1)
+  })
+  .strict();
+
+export const teamWriteRequestSchema = z
+  .object({
+    name: z.string().trim().min(1).max(100),
+    settings: settingsSchema,
+    rosterPlayerIds: uniquePlayerIds(0)
+  })
+  .strict();
+
+export const teamIdSchema = z.string().trim().min(1).max(100);

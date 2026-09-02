@@ -11,7 +11,12 @@
     "predev": "npm run build --workspace @fantasy-football/shared",
     "dev": "npm run dev --workspace @fantasy-football/api & npm run dev --workspace @fantasy-football/web",
     "build": "npm run build --workspace @fantasy-football/shared && npm run build --workspace @fantasy-football/api && npm run build --workspace @fantasy-football/web",
-    "typecheck": "npm run build --workspace @fantasy-football/shared && npm run typecheck --workspace @fantasy-football/api && npm run typecheck --workspace @fantasy-football/web"
+    "typecheck": "npm run build --workspace @fantasy-football/shared && npm run typecheck --workspace @fantasy-football/api && npm run typecheck --workspace @fantasy-football/web",
+    "db:generate": "npm run prisma:generate --workspace @fantasy-football/api",
+    "db:migrate": "npm run prisma:migrate --workspace @fantasy-football/api",
+    "db:deploy": "npm run prisma:migrate:deploy --workspace @fantasy-football/api",
+    "db:seed": "npm run prisma:seed --workspace @fantasy-football/api",
+    "test": "npm run test --workspace @fantasy-football/api"
   },
   "engines": {
     "node": ">=20"

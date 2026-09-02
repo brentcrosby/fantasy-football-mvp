@@ -7,9 +7,10 @@ interface RosterEditorProps {
   onRemovePlayer: (playerId: string) => void;
   loading: boolean;
   error: string | null;
+  disabled: boolean;
 }
 
-export function RosterEditor({ players, selectedPlayers, onAddPlayer, onRemovePlayer, loading, error }: RosterEditorProps) {
+export function RosterEditor({ players, selectedPlayers, onAddPlayer, onRemovePlayer, loading, error, disabled }: RosterEditorProps) {
   const selectedPlayerIds = new Set(selectedPlayers.map((player) => player.id));
 
   return (
@@ -64,6 +65,7 @@ export function RosterEditor({ players, selectedPlayers, onAddPlayer, onRemovePl
                   <button
                     className="secondary-button roster-action"
                     type="button"
+                    disabled={disabled}
                     aria-label={`Remove ${player.name} from roster`}
                     onClick={() => onRemovePlayer(player.id)}
                   >
@@ -73,6 +75,7 @@ export function RosterEditor({ players, selectedPlayers, onAddPlayer, onRemovePl
                   <button
                     className="primary-button roster-action"
                     type="button"
+                    disabled={disabled}
                     aria-label={`Add ${player.name} to roster`}
                     onClick={() => onAddPlayer(player)}
                   >

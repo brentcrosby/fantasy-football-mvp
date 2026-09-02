@@ -7,57 +7,36 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id           String        @id @default(cuid())
-  email        String        @unique
-  displayName  String
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  teams        FantasyTeam[]
-}
-
 model FantasyTeam {
-  id            String         @id @default(cuid())
-  userId        String
-  name          String
-  scoringFormat ScoringFormat @default(HALF_PPR)
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  rosterPlayers RosterPlayer[]
-  reports       WeeklyReport[]
+  id                String             @id @default(cuid())
+  name              String             @db.VarChar(100)
+  scoringFormat     ScoringFormat
+  lineupSlots       LineupSlot[]
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  rosterMemberships RosterMembership[]
 }
 
 model Player {
-  id              String         @id @default(cuid())
-  name            String
-  position        Position
-  nflTeam         String
-  byeWeek         Int
-  injuryStatus    InjuryStatus   @default(HEALTHY)
-  projectedPoints Float
-  targetShare     Float?
-  rosterPlayers   RosterPlayer[]
+  id                String             @id
+  name              String             @db.VarChar(100)
+  position          Position
+  nflTeam           String             @db.VarChar(3)
+  byeWeek           Int
+  injuryStatus      InjuryStatus       @default(HEALTHY)
+  projectedPoints   Float
+  targetShare       Float?
+  rosterMemberships RosterMembership[]
 }
 
-model RosterPlayer {
-  id       String      @id @default(cuid())
-  teamId   String
-  playerId String
-  team     FantasyTeam @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  player   Player      @relation(fields: [playerId], references: [id], onDelete: Cascade)
+model RosterMembership {
+  fantasyTeamId String
+  playerId      String
+  fantasyTeam   FantasyTeam @relation(fields: [fantasyTeamId], references: [id], onDelete: Cascade)
+  player        Player      @relation(fields: [playerId], references: [id], onDelete: Restrict)
 
-  @@unique([teamId, playerId])
-}
-
-model WeeklyReport {
-  id        String      @id @default(cuid())
-  teamId    String
-  week      Int
-  summary   String
-  payload   Json
-  createdAt DateTime    @default(now())
-  team      FantasyTeam @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  @@id([fantasyTeamId, playerId])
+  @@index([playerId])
 }
 
 enum Position {
@@ -75,6 +54,16 @@ enum ScoringFormat {
   PPR
 }
 
+enum LineupSlot {
+  QB
+  RB
+  WR
+  TE
+  K
+  DST
+  FLEX
+}
+
 enum InjuryStatus {
   HEALTHY
   QUESTIONABLE
@@ -83,4 +72,3 @@ enum InjuryStatus {
   IR
   SUSPENDED
 }
-

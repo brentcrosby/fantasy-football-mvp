@@ -29,6 +29,27 @@ export interface RecommendationRequest {
   roster: RosterPlayer[];
 }
 
+export interface RecommendationApiRequest {
+  week: number;
+  settings: LeagueSettings;
+  rosterPlayerIds: string[];
+}
+
+export interface PersistedFantasyTeam {
+  id: string;
+  name: string;
+  settings: LeagueSettings;
+  roster: RosterPlayer[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TeamWriteRequest {
+  name: string;
+  settings: LeagueSettings;
+  rosterPlayerIds: string[];
+}
+
 export interface SlotAssignment {
   slot: LineupSlot;
   player: Player;
