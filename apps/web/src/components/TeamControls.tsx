@@ -37,8 +37,8 @@ export function TeamControls({
     <section className="panel team-controls" aria-labelledby="team-controls-heading">
       <div className="section-header">
         <div>
-          <p className="eyebrow">Fantasy Team</p>
-          <h2 id="team-controls-heading">Save your roster</h2>
+          <p className="eyebrow">My Team</p>
+          <h2 id="team-controls-heading">Team Profile</h2>
         </div>
         <span className={`persistence-status status-${status}`} aria-live="polite">
           {STATUS_LABELS[status]}

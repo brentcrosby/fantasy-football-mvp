@@ -18,7 +18,7 @@ export function RosterEditor({ players, selectedPlayers, onAddPlayer, onRemovePl
       <div className="section-header roster-header">
         <div>
           <p className="eyebrow">Roster Builder</p>
-          <h2 id="roster-editor-heading">Available Players</h2>
+          <h2 id="roster-editor-heading">Player Pool</h2>
         </div>
         <span className="roster-count" aria-live="polite">
           {selectedPlayers.length} selected
@@ -34,16 +34,22 @@ export function RosterEditor({ players, selectedPlayers, onAddPlayer, onRemovePl
 
       {!loading && !error && players.length > 0 && (
         <ul className="player-list" aria-label="Available players">
+          <li className="player-table-header" aria-hidden="true">
+            <span>Player</span>
+            <span>Week outlook</span>
+            <span>Move</span>
+          </li>
           {players.map((player) => {
             const isSelected = selectedPlayerIds.has(player.id);
 
             return (
               <li className={`player-row${isSelected ? " is-selected" : ""}`} key={player.id}>
-                <div className="player-main">
-                  <strong>{player.name}</strong>
-                  <span>
-                    {player.position} - {player.nflTeam}
-                  </span>
+                <div className="player-identity">
+                  <span className={`position-badge position-${player.position.toLowerCase()}`}>{player.position}</span>
+                  <div className="player-main">
+                    <strong>{player.name}</strong>
+                    <span>{player.nflTeam}</span>
+                  </div>
                 </div>
 
                 <dl className="player-meta" aria-label={`${player.name} details`}>
@@ -57,7 +63,9 @@ export function RosterEditor({ players, selectedPlayers, onAddPlayer, onRemovePl
                   </div>
                   <div>
                     <dt>Status</dt>
-                    <dd>{statusLabel(player.injuryStatus)}</dd>
+                    <dd className={`injury-status injury-${player.injuryStatus.toLowerCase()}`}>
+                      {statusLabel(player.injuryStatus)}
+                    </dd>
                   </div>
                 </dl>
 
@@ -69,7 +77,7 @@ export function RosterEditor({ players, selectedPlayers, onAddPlayer, onRemovePl
                     aria-label={`Remove ${player.name} from roster`}
                     onClick={() => onRemovePlayer(player.id)}
                   >
-                    Remove
+                    Drop
                   </button>
                 ) : (
                   <button
@@ -79,7 +87,7 @@ export function RosterEditor({ players, selectedPlayers, onAddPlayer, onRemovePl
                     aria-label={`Add ${player.name} to roster`}
                     onClick={() => onAddPlayer(player)}
                   >
-                    Add
+                    + Add
                   </button>
                 )}
               </li>

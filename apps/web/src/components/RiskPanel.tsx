@@ -6,7 +6,7 @@ interface RiskPanelProps {
 
 export function RiskPanel({ report }: RiskPanelProps) {
   return (
-    <section className="panel" aria-labelledby="risk-heading">
+    <section className="panel risk-panel" aria-labelledby="risk-heading">
       <div className="section-header">
         <div>
           <p className="eyebrow">Roster Review</p>
@@ -42,4 +42,3 @@ export function RiskPanel({ report }: RiskPanelProps) {
     </section>
   );
 }
-
