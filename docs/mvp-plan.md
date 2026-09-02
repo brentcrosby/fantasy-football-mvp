@@ -6,20 +6,20 @@ Build a concise full-stack project that proves application development fundament
 
 ## V1 User Flow
 
-1. User opens dashboard.
-2. User reviews a sample roster.
-3. User selects scoring format and NFL week.
+1. User creates an account or signs in.
+2. User creates or selects an owned fantasy team.
+3. User manages the roster and selects scoring format and NFL week.
 4. App generates recommended starters, bench, risk notes, and roster needs.
-5. User can later save weekly reports after persistence is added.
+5. User can later save weekly reports.
 
 ## Implementation Milestones
 
-1. Scaffold React frontend, Express backend, shared domain package, and Prisma schema.
-2. Build rule-based recommendation engine.
-3. Add manual roster management backed by Postgres.
-4. Add auth and user-owned teams.
-5. Save weekly recommendation reports.
-6. Deploy frontend, API, and database.
+1. [x] Scaffold React frontend, Express backend, shared domain package, and Prisma schema.
+2. [x] Build rule-based recommendation engine.
+3. [x] Add manual roster management backed by Postgres.
+4. [x] Add auth and user-owned teams.
+5. [ ] Save weekly recommendation reports.
+6. [ ] Deploy frontend, API, and database.
 
 ## Recommendation Rules
 
@@ -37,4 +37,3 @@ Build a concise full-stack project that proves application development fundament
 - AI-generated explanation text from structured recommendation results.
 - Prediction model trained against historical fantasy points.
 - Trade and waiver analysis.
-

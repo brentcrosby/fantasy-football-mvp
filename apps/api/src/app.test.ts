@@ -3,13 +3,15 @@ import type { Server } from "node:http";
 import { once } from "node:events";
 import { after, before, test } from "node:test";
 
-import type { PersistedFantasyTeam, RecommendationReport, TeamWriteRequest } from "@fantasy-football/shared";
+import type { AuthenticatedUser, PersistedFantasyTeam, RecommendationReport, TeamWriteRequest } from "@fantasy-football/shared";
 
 import { app } from "./app.js";
 import { prisma } from "./lib/prisma.js";
 import { assertTestDatabaseUrl } from "./lib/testDatabaseGuard.js";
 
 const testNamePrefix = "[integration]";
+const testEmailPrefix = "integration-test-";
+const testPassword = "test-password-123";
 const defaultSettings = {
   scoringFormat: "HALF_PPR" as const,
   lineupSlots: ["QB", "RB", "RB", "WR", "WR", "TE", "FLEX", "K", "DST"] as const
@@ -18,11 +20,14 @@ const defaultSettings = {
 let server: Server | undefined;
 let baseUrl: string;
 let setupFailed = false;
+let defaultCookie: string;
+let accountSequence = 0;
 
 before(async () => {
   try {
     assertTestDatabaseUrl();
     await prisma.fantasyTeam.deleteMany({ where: { name: { startsWith: testNamePrefix } } });
+    await prisma.user.deleteMany({ where: { email: { startsWith: testEmailPrefix } } });
 
     server = app.listen(0);
     await once(server, "listening");
@@ -30,6 +35,9 @@ before(async () => {
     const address = server.address();
     assert(address && typeof address === "object");
     baseUrl = `http://127.0.0.1:${address.port}`;
+
+    const account = await createAccount("default");
+    defaultCookie = account.cookie;
   } catch (error) {
     setupFailed = true;
     throw error;
@@ -43,6 +51,7 @@ after(async () => {
     try {
       assertTestDatabaseUrl();
       await prisma.fantasyTeam.deleteMany({ where: { name: { startsWith: testNamePrefix } } });
+      await prisma.user.deleteMany({ where: { email: { startsWith: testEmailPrefix } } });
     } catch (error) {
       teardownErrors.push(error);
     }
@@ -72,6 +81,94 @@ after(async () => {
   if (teardownErrors[0]) {
     throw teardownErrors[0];
   }
+});
+
+test("requires authentication for team routes", async () => {
+  const list = await apiRequest("/api/teams", { cookie: null });
+  const create = await apiRequest("/api/teams", {
+    method: "POST",
+    body: buildTeamBody("unauthenticated", ["p1"]),
+    cookie: null
+  });
+
+  assert.equal(list.status, 401);
+  assert.equal(create.status, 401);
+  assert.equal((await apiRequest("/api/auth/logout", { method: "POST", cookie: null })).status, 204);
+});
+
+test("registers, resumes, logs out, and logs back in", async () => {
+  const email = nextTestEmail("auth-flow");
+  const registration = await apiRequest("/api/auth/register", {
+    method: "POST",
+    body: { email: email.toUpperCase(), password: testPassword },
+    cookie: null
+  });
+
+  assert.equal(registration.status, 201);
+  const user = (registration.body as { user: AuthenticatedUser }).user;
+  assert.equal(user.email, email);
+  const cookie = readSessionCookie(registration);
+
+  const session = await apiRequest("/api/auth/session", { cookie });
+  assert.equal(session.status, 200);
+  assert.deepEqual((session.body as { user: AuthenticatedUser }).user, user);
+
+  const duplicate = await apiRequest("/api/auth/register", {
+    method: "POST",
+    body: { email, password: testPassword },
+    cookie: null
+  });
+  assert.equal(duplicate.status, 409);
+
+  const wrongPassword = await apiRequest("/api/auth/login", {
+    method: "POST",
+    body: { email, password: "incorrect-password" },
+    cookie: null
+  });
+  assert.equal(wrongPassword.status, 401);
+
+  const logoutResponse = await apiRequest("/api/auth/logout", { method: "POST", cookie });
+  assert.equal(logoutResponse.status, 204);
+  assert.equal((await apiRequest("/api/auth/session", { cookie })).status, 401);
+
+  const loginResponse = await apiRequest("/api/auth/login", {
+    method: "POST",
+    body: { email, password: testPassword },
+    cookie: null
+  });
+  assert.equal(loginResponse.status, 200);
+  assert(readSessionCookie(loginResponse));
+});
+
+test("isolates each user's saved teams", async () => {
+  const owner = await createAccount("owner");
+  const otherUser = await createAccount("other");
+  const createdResponse = await apiRequest("/api/teams", {
+    method: "POST",
+    body: buildTeamBody("owned", ["p1", "p2"]),
+    cookie: owner.cookie
+  });
+
+  assert.equal(createdResponse.status, 201);
+  const created = (createdResponse.body as { team: PersistedFantasyTeam }).team;
+
+  const ownerList = await apiRequest("/api/teams", { cookie: owner.cookie });
+  assert.equal(ownerList.status, 200);
+  assert.equal((ownerList.body as { teams: PersistedFantasyTeam[] }).teams.some((team) => team.id === created.id), true);
+
+  const otherList = await apiRequest("/api/teams", { cookie: otherUser.cookie });
+  assert.deepEqual((otherList.body as { teams: PersistedFantasyTeam[] }).teams, []);
+  assert.equal((await apiRequest(`/api/teams/${created.id}`, { cookie: otherUser.cookie })).status, 404);
+
+  const rejectedUpdate = await apiRequest(`/api/teams/${created.id}`, {
+    method: "PUT",
+    body: buildTeamBody("stolen", ["p3"]),
+    cookie: otherUser.cookie
+  });
+  assert.equal(rejectedUpdate.status, 404);
+
+  const ownerReload = await apiRequest(`/api/teams/${created.id}`, { cookie: owner.cookie });
+  assert.equal((ownerReload.body as { team: PersistedFantasyTeam }).team.name, `${testNamePrefix} owned`);
 });
 
 test("lists the stable seeded player catalog from PostgreSQL", async () => {
@@ -282,14 +379,60 @@ function buildTeamBody(name: string, rosterPlayerIds: string[]): TeamWriteReques
   };
 }
 
-async function apiRequest(path: string, options: { method?: string; body?: unknown } = {}) {
+async function createAccount(label: string): Promise<{ user: AuthenticatedUser; cookie: string }> {
+  const response = await apiRequest("/api/auth/register", {
+    method: "POST",
+    body: { email: nextTestEmail(label), password: testPassword },
+    cookie: null
+  });
+
+  assert.equal(response.status, 201);
+  return {
+    user: (response.body as { user: AuthenticatedUser }).user,
+    cookie: readSessionCookie(response)
+  };
+}
+
+function nextTestEmail(label: string): string {
+  accountSequence += 1;
+  return `${testEmailPrefix}${process.pid}-${accountSequence}-${label}@example.com`;
+}
+
+function readSessionCookie(response: { headers: Headers }): string {
+  const setCookie = response.headers.get("set-cookie");
+  assert(setCookie, "expected a session cookie");
+  return setCookie.split(";", 1)[0];
+}
+
+async function apiRequest(
+  path: string,
+  options: { method?: string; body?: unknown; cookie?: string | null } = {}
+) {
+  const headers = new Headers();
+
+  if (options.body !== undefined) {
+    headers.set("Content-Type", "application/json");
+  }
+
+  const cookie = options.cookie === undefined ? defaultCookie : options.cookie;
+
+  if (cookie) {
+    headers.set("Cookie", cookie);
+  }
+
   const response = await fetch(`${baseUrl}${path}`, {
     method: options.method,
-    headers: options.body === undefined ? undefined : { "Content-Type": "application/json" },
+    headers,
     body: options.body === undefined ? undefined : JSON.stringify(options.body)
   });
 
-  return { status: response.status, body: (await response.json()) as unknown };
+  const responseText = await response.text();
+
+  return {
+    status: response.status,
+    body: responseText ? (JSON.parse(responseText) as unknown) : null,
+    headers: response.headers
+  };
 }
 
 function numericPlayerIdSort(left: string, right: string) {

@@ -3,11 +3,25 @@ import { Router, type Response } from "express";
 import { ApiError } from "../lib/apiError.js";
 import { teamWithRoster, toTeamDto } from "../lib/mappers.js";
 import { prisma } from "../lib/prisma.js";
+import { getAuthenticatedUser, requireAuth } from "../lib/session.js";
 import { teamIdSchema, teamWriteRequestSchema } from "../lib/validation.js";
 
 export const teamsRouter = Router();
+teamsRouter.use(requireAuth);
+
+teamsRouter.get("/", async (_request, response) => {
+  const user = getAuthenticatedUser(response);
+  const teams = await prisma.fantasyTeam.findMany({
+    where: { userId: user.id },
+    include: teamWithRoster,
+    orderBy: { updatedAt: "desc" }
+  });
+
+  response.json({ teams: teams.map(toTeamDto) });
+});
 
 teamsRouter.post("/", async (request, response) => {
+  const user = getAuthenticatedUser(response);
   const parsed = teamWriteRequestSchema.safeParse(request.body);
 
   if (!parsed.success) {
@@ -20,6 +34,7 @@ teamsRouter.post("/", async (request, response) => {
 
     return transaction.fantasyTeam.create({
       data: {
+        userId: user.id,
         name: parsed.data.name,
         scoringFormat: parsed.data.settings.scoringFormat,
         lineupSlots: parsed.data.settings.lineupSlots,
@@ -36,13 +51,14 @@ teamsRouter.post("/", async (request, response) => {
 });
 
 teamsRouter.get("/:teamId", async (request, response) => {
+  const user = getAuthenticatedUser(response);
   const teamId = parseTeamId(request.params.teamId, response);
 
   if (!teamId) {
     return;
   }
 
-  const team = await prisma.fantasyTeam.findUnique({ where: { id: teamId }, include: teamWithRoster });
+  const team = await prisma.fantasyTeam.findFirst({ where: { id: teamId, userId: user.id }, include: teamWithRoster });
 
   if (!team) {
     throw new ApiError(404, "Team not found.");
@@ -52,6 +68,7 @@ teamsRouter.get("/:teamId", async (request, response) => {
 });
 
 teamsRouter.put("/:teamId", async (request, response) => {
+  const user = getAuthenticatedUser(response);
   const teamId = parseTeamId(request.params.teamId, response);
   const parsed = teamWriteRequestSchema.safeParse(request.body);
 
@@ -65,7 +82,10 @@ teamsRouter.put("/:teamId", async (request, response) => {
   }
 
   const team = await prisma.$transaction(async (transaction) => {
-    const existingTeam = await transaction.fantasyTeam.findUnique({ where: { id: teamId }, select: { id: true } });
+    const existingTeam = await transaction.fantasyTeam.findFirst({
+      where: { id: teamId, userId: user.id },
+      select: { id: true }
+    });
 
     if (!existingTeam) {
       throw new ApiError(404, "Team not found.");

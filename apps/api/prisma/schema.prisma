@@ -9,12 +9,38 @@ datasource db {
 
 model FantasyTeam {
   id                String             @id @default(cuid())
+  userId            String?
   name              String             @db.VarChar(100)
   scoringFormat     ScoringFormat
   lineupSlots       LineupSlot[]
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
+  user              User?              @relation(fields: [userId], references: [id], onDelete: Cascade)
   rosterMemberships RosterMembership[]
+
+  @@index([userId])
+}
+
+model User {
+  id           String        @id @default(cuid())
+  email        String        @unique @db.VarChar(320)
+  passwordHash String        @db.VarChar(256)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  teams        FantasyTeam[]
+  sessions     Session[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique @db.VarChar(64)
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 model Player {
