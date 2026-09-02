@@ -230,19 +230,38 @@ export function App() {
   }
 
   return (
-    <main>
+    <main className="app-shell">
+      <div className="app-bar">
+        <div className="app-brand">
+          <span className="brand-mark" aria-hidden="true">FF</span>
+          <span>
+            <strong>Lineup Assistant</strong>
+            <small>Fantasy decision support</small>
+          </span>
+        </div>
+        <span className="season-label">2026 Season</span>
+      </div>
+
       <header className="app-header">
-        <div>
-          <p className="eyebrow">Fantasy Football MVP</p>
-          <h1>Lineup Assistant</h1>
-          <p className="subtitle">
-            Manage a roster and generate weekly starter recommendations from projections, injuries, bye weeks, and league format.
-          </p>
+        <div className="header-copy">
+          <p className="eyebrow">Weekly Command Center</p>
+          <h1>{teamName.trim() || "Build your lineup"}</h1>
+          <p className="subtitle">Set the roster. Check availability. Start the highest-projected eligible lineup.</p>
         </div>
-        <div className="header-actions">
-          <span>{scoringFormatLabel(scoringFormat)}</span>
-          <span>Week {week}</span>
-        </div>
+        <dl className="scoreboard" aria-label="Current lineup settings">
+          <div>
+            <dt>Week</dt>
+            <dd>{week}</dd>
+          </div>
+          <div>
+            <dt>Format</dt>
+            <dd>{scoringFormatLabel(scoringFormat)}</dd>
+          </div>
+          <div>
+            <dt>Roster</dt>
+            <dd>{selectedPlayers.length}</dd>
+          </div>
+        </dl>
       </header>
 
       <div className="workflow-grid">
@@ -279,12 +298,22 @@ export function App() {
         <aside className="panel generate-panel" aria-labelledby="generate-heading">
           <div className="section-header">
             <div>
-              <p className="eyebrow">Recommendation</p>
-              <h2 id="generate-heading">Lineup</h2>
+              <p className="eyebrow">Week {week} Decision</p>
+              <h2 id="generate-heading">Starting Lineup</h2>
             </div>
           </div>
 
           <div className="generate-body">
+            <dl className="generate-stats">
+              <div>
+                <dt>Players</dt>
+                <dd>{selectedPlayers.length}</dd>
+              </div>
+              <div>
+                <dt>Slots</dt>
+                <dd>{lineupSlots.length}</dd>
+              </div>
+            </dl>
             {selectedPlayers.length === 0 && <p className="state-message">Select at least one player to generate a lineup.</p>}
             {recommendationError && <p className="error inline-error">{recommendationError}</p>}
             {isReportStale && <p className="stale-message">This report is stale. Generate a new lineup to use the current roster and settings.</p>}

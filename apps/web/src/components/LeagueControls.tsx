@@ -19,8 +19,8 @@ export function LeagueControls({ week, scoringFormat, disabled, onWeekChange, on
     <section className="panel league-controls" aria-labelledby="league-controls-heading">
       <div className="section-header">
         <div>
-          <p className="eyebrow">League Setup</p>
-          <h2 id="league-controls-heading">Controls</h2>
+          <p className="eyebrow">League Rules</p>
+          <h2 id="league-controls-heading">Week &amp; Scoring</h2>
         </div>
       </div>
 

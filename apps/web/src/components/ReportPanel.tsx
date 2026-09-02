@@ -18,11 +18,17 @@ export function ReportPanel({ report }: ReportPanelProps) {
       <p className="summary">{report.summary}</p>
 
       <div className="lineup-grid">
+        <div className="lineup-table-header" aria-hidden="true">
+          <span>Slot</span>
+          <span>Starter</span>
+          <span>Proj</span>
+        </div>
         {report.starters.map((assignment, index) => (
           <article className="lineup-row" key={`${assignment.slot}-${assignment.player.id}-${index}`}>
             <span className="slot">{assignment.slot}</span>
             <div>
               <strong>{assignment.player.name}</strong>
+              <span className="starter-meta">{assignment.player.position} / {assignment.player.nflTeam}</span>
               <p>{assignment.reason}</p>
             </div>
             <span className="projection">{assignment.player.projectedPoints.toFixed(1)}</span>
@@ -32,4 +38,3 @@ export function ReportPanel({ report }: ReportPanelProps) {
     </section>
   );
 }
-
