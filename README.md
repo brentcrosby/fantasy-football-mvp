@@ -18,6 +18,7 @@ Fantasy Football Lineup Assistant is a full-stack MVP for managing a fantasy ros
 - PostgreSQL with Prisma for team, settings, player, roster, and report persistence.
 - Server-side sessions stored as token hashes with `HttpOnly` browser cookies.
 - Shared TypeScript package for roster and recommendation types.
+- GitHub Actions for repeatable typecheck, build, and PostgreSQL integration tests.
 
 ## Project Structure
 
@@ -102,6 +103,21 @@ The cleanup guard refuses to run against the development `public` schema. Tests 
 
 ## Current Status
 
-The application now uses secure cookie sessions, user-owned PostgreSQL teams, a deterministic lineup engine, and immutable weekly report history. Deployment is the remaining V1 milestone. External league imports and live NFL data remain later features.
+The application now uses secure cookie sessions, user-owned PostgreSQL teams, a deterministic lineup engine, immutable weekly report history, and automated CI. Production deployment is configured but is not complete until a live instance is provisioned and verified. External league imports and live NFL data remain later features.
 
-Before public deployment, serve the application over HTTPS, configure `WEB_ORIGIN` to the deployed frontend origin, and add request throttling to the authentication routes.
+Production must use HTTPS so secure session cookies can be sent. The included deployment serves the frontend and API from one origin; configure `WEB_ORIGIN` only if they are hosted separately.
+
+## Render Deployment
+
+The repository includes `render.yaml` for a single same-origin web service and a PostgreSQL database. The Express service serves the built React application, runs pending migrations and the idempotent player seed at startup, exposes a database-aware `/health` endpoint, and uses secure cookies in production.
+
+To deploy:
+
+1. In Render, create a new Blueprint and connect this GitHub repository.
+2. Review the two resources defined by `render.yaml`.
+3. Apply the Blueprint and wait for the database and web service to become healthy.
+4. Open the generated `onrender.com` URL and verify registration, team saving, recommendation generation, and report history.
+
+The Blueprint selects Render's free web and PostgreSQL plans for initial portfolio testing. Render currently expires free PostgreSQL databases after 30 days and does not provide backups for them. Upgrade the database or use another managed PostgreSQL provider before treating the deployment as durable.
+
+The production server validates `DATABASE_URL`, `PORT`, `NODE_ENV`, and optional `WEB_ORIGIN` values before listening. Registration and login endpoints are limited to 20 attempts per IP every 15 minutes.

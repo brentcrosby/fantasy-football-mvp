@@ -10,7 +10,7 @@ import type {
   TeamWriteRequest
 } from "@fantasy-football/shared";
 
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:4000";
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.PROD ? "" : "http://localhost:4000");
 
 export async function fetchCurrentUser(): Promise<AuthenticatedUser | null> {
   const response = await apiFetch("/api/auth/session");

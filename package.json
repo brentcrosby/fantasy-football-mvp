@@ -10,6 +10,7 @@
   "scripts": {
     "predev": "npm run build --workspace @fantasy-football/shared",
     "dev": "npm run dev --workspace @fantasy-football/api & npm run dev --workspace @fantasy-football/web",
+    "start": "npm run start --workspace @fantasy-football/api",
     "build": "npm run build --workspace @fantasy-football/shared && npm run build --workspace @fantasy-football/api && npm run build --workspace @fantasy-football/web",
     "typecheck": "npm run build --workspace @fantasy-football/shared && npm run typecheck --workspace @fantasy-football/api && npm run typecheck --workspace @fantasy-football/web",
     "db:generate": "npm run prisma:generate --workspace @fantasy-football/api",

@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { Router } from "express";
+import { rateLimit } from "express-rate-limit";
 
 import { ApiError } from "../lib/apiError.js";
 import { hashPassword, verifyPassword } from "../lib/password.js";
@@ -8,6 +9,16 @@ import { prisma } from "../lib/prisma.js";
 import { authCredentialsSchema } from "../lib/validation.js";
 
 export const authRouter = Router();
+
+const authenticationRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 20,
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+  message: { error: "Too many authentication attempts. Try again later." }
+});
+
+authRouter.use(["/register", "/login"], authenticationRateLimit);
 
 authRouter.post("/register", async (request, response) => {
   const parsed = authCredentialsSchema.safeParse(request.body);
