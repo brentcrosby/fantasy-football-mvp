@@ -21,6 +21,8 @@ Build a concise full-stack project that proves application development fundament
 5. [x] Save weekly recommendation reports.
 6. [ ] Deploy frontend, API, and database.
 
+Deployment readiness is implemented with same-origin production serving, startup validation, database health checks, authentication throttling, GitHub CI, and a Render Blueprint. The milestone remains incomplete until the live environment is provisioned and verified.
+
 ## Recommendation Rules
 
 - Exclude players who are out, on injured reserve, suspended, or on bye from starter slots.

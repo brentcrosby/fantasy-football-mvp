@@ -13,6 +13,7 @@ import type {
 
 import { app } from "./app.js";
 import { prisma } from "./lib/prisma.js";
+import { loadRuntimeConfig } from "./lib/runtimeConfig.js";
 import { assertTestDatabaseUrl } from "./lib/testDatabaseGuard.js";
 
 const testNamePrefix = "[integration]";
@@ -105,6 +106,35 @@ test("requires authentication for team routes", async () => {
     401
   );
   assert.equal((await apiRequest("/api/auth/logout", { method: "POST", cookie: null })).status, 204);
+});
+
+test("reports database readiness", async () => {
+  const response = await apiRequest("/health", { cookie: null });
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(response.body, {
+    ok: true,
+    service: "fantasy-football-api",
+    database: "connected"
+  });
+});
+
+test("validates runtime configuration before startup", () => {
+  assert.deepEqual(
+    loadRuntimeConfig({ DATABASE_URL: "postgresql://localhost/example", PORT: "4100", NODE_ENV: "production" }),
+    {
+      nodeEnvironment: "production",
+      port: 4100,
+      databaseUrl: "postgresql://localhost/example",
+      webOrigin: undefined
+    }
+  );
+  assert.throws(() => loadRuntimeConfig({}), /DATABASE_URL/);
+  assert.throws(() => loadRuntimeConfig({ DATABASE_URL: "postgresql:\/\/localhost\/example", PORT: "70000" }), /PORT/);
+  assert.throws(
+    () => loadRuntimeConfig({ DATABASE_URL: "postgresql:\/\/localhost\/example", WEB_ORIGIN: "not-a-url" }),
+    /WEB_ORIGIN/
+  );
 });
 
 test("registers, resumes, logs out, and logs back in", async () => {

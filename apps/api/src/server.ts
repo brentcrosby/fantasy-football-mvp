@@ -2,9 +2,10 @@ import "dotenv/config";
 
 import { app } from "./app.js";
 import { prisma } from "./lib/prisma.js";
+import { loadRuntimeConfig } from "./lib/runtimeConfig.js";
 
-const port = Number(process.env.PORT ?? 4000);
-const server = app.listen(port, () => {
+const { port } = loadRuntimeConfig();
+const server = app.listen(port, "0.0.0.0", () => {
   console.log(`Fantasy football API listening on http://localhost:${port}`);
 });
 
