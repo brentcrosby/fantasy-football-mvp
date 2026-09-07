@@ -32,7 +32,9 @@ export function ReportPanel({ report, statusLabel = "Rule-based" }: ReportPanelP
               <span className="starter-meta">{assignment.player.position} / {assignment.player.nflTeam}</span>
               <p>{assignment.reason}</p>
             </div>
-            <span className="projection">{assignment.player.projectedPoints.toFixed(1)}</span>
+            <span className="projection">
+              {assignment.player.hasProjection === false ? "--" : assignment.player.projectedPoints.toFixed(1)}
+            </span>
           </article>
         ))}
       </div>

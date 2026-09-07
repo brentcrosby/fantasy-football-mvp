@@ -56,6 +56,7 @@ interface LivePlayerRecord {
   byeWeek: number;
   injuryStatus: InjuryStatus;
   projectedPoints: number;
+  hasProjection: boolean;
   targetShare: null;
   dataSource: PlayerDataSource;
   externalId: string;
@@ -177,7 +178,8 @@ export async function syncLivePlayerData(
           nflTeam: player.nflTeam,
           byeWeek: player.byeWeek,
           injuryStatus: player.injuryStatus,
-          projectedPoints: player.projectedPoints,
+        projectedPoints: player.projectedPoints,
+        hasProjection: player.hasProjection,
           targetShare: player.targetShare,
           dataSource: player.dataSource,
           externalId: player.externalId,
@@ -266,6 +268,16 @@ export function buildLivePlayerBatch({
   );
   const sourceUpdatedAt = latestSourceDate(rankings);
   const playersById = new Map<string, LivePlayerRecord>();
+  const byeWeekByTeam = new Map<string, number>();
+
+  for (const ranking of rankings) {
+    const team = normalizeTeam(ranking.team);
+    const byeWeek = Number(ranking.player_bye_week);
+
+    if (team && isValidWeek(byeWeek)) {
+      byeWeekByTeam.set(team, byeWeek);
+    }
+  }
 
   for (const ranking of rankings) {
     const position = toPosition(ranking.pos);
@@ -289,6 +301,7 @@ export function buildLivePlayerBatch({
         byeWeek,
         injuryStatus: "HEALTHY",
         projectedPoints,
+        hasProjection: true,
         targetShare: null,
         dataSource: "LIVE",
         externalId: team,
@@ -321,6 +334,41 @@ export function buildLivePlayerBatch({
       byeWeek,
       injuryStatus: normalizeInjuryStatus(sleeperPlayer.injury_status),
       projectedPoints,
+      hasProjection: true,
+      targetShare: null,
+      dataSource: "LIVE",
+      externalId: sleeperId,
+      season,
+      projectionWeek: week,
+      dataUpdatedAt: sourceUpdatedAt
+    });
+  }
+
+  for (const [sleeperId, sleeperPlayer] of Object.entries(parsedSleeperPlayers)) {
+    const id = `sleeper:${sleeperId}`;
+
+    if (playersById.has(id)) continue;
+
+    const position = sleeperPlayer.fantasy_positions
+      ?.map(toPosition)
+      .find((candidate): candidate is Position => candidate !== null);
+    const team = normalizeTeam(sleeperPlayer.team);
+    const byeWeek = team ? byeWeekByTeam.get(team) : undefined;
+    const name =
+      sleeperPlayer.full_name?.trim() ||
+      [sleeperPlayer.first_name, sleeperPlayer.last_name].filter(Boolean).join(" ").trim();
+
+    if (!position || !team || !byeWeek || !name) continue;
+
+    playersById.set(id, {
+      id,
+      name,
+      position,
+      nflTeam: team,
+      byeWeek,
+      injuryStatus: normalizeInjuryStatus(sleeperPlayer.injury_status),
+      projectedPoints: 0,
+      hasProjection: false,
       targetShare: null,
       dataSource: "LIVE",
       externalId: sleeperId,

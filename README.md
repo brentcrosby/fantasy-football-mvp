@@ -93,6 +93,12 @@ Force a local refresh when validating the importer:
 npm --workspace @fantasy-football/api run data:sync -- --force
 ```
 
+## Sleeper League Import
+
+Authenticated users can enter a Sleeper username, select a current-season NFL league, preview the owned roster, and import it as a normal saved team. Connected teams retain the Sleeper league and roster identity so the same flow can refresh them later without creating duplicates.
+
+The import translates Standard, Half PPR, and PPR reception scoring plus QB, RB, WR, TE, FLEX, K, and DST lineup slots. It blocks unsupported starting positions such as superflex and IDP instead of silently changing the league structure. Sleeper's API is read-only, so the application never requests a Sleeper password or modifies the source league.
+
 Existing teams created before the authentication migration are preserved as unowned legacy records. Authenticated team routes expose only teams owned by the current account.
 
 ## Database Commands
@@ -114,7 +120,7 @@ The initial migration is `20260831210000_init_team_persistence`. Do not reset an
 
 ## Integration Tests
 
-Integration tests use the same PostgreSQL server but require the isolated `test` schema. The test command verifies that `DATABASE_URL` contains exactly `schema=test`, applies migrations, runs the player seed twice to verify idempotency, and then starts the API tests. The suite covers authentication, team and report ownership, request validation, and immutable report snapshots.
+Integration tests use the same PostgreSQL server but require the isolated `test` schema. The test command verifies that `DATABASE_URL` contains exactly `schema=test`, applies migrations, runs the player seed twice to verify idempotency, and then starts the API tests. The suite covers authentication, team and report ownership, request validation, immutable report snapshots, and Sleeper preview/import/refresh behavior against local provider fixtures.
 
 ```bash
 DATABASE_URL="postgresql://postgres:postgres@localhost:5432/fantasy_football_mvp?schema=test" npm test
@@ -124,7 +130,7 @@ The cleanup guard refuses to run against the development `public` schema. Tests 
 
 ## Current Status
 
-The application is deployed on Render with secure cookie sessions, user-owned PostgreSQL teams, current weekly NFL player data, a deterministic lineup engine, immutable weekly report history, and automated CI. External league imports, waiver analysis, and a trained prediction model remain later features.
+The application is deployed on Render with secure cookie sessions, user-owned PostgreSQL teams, current weekly NFL player data, Sleeper roster imports, a deterministic lineup engine, immutable weekly report history, and automated CI. Waiver analysis, scoring-aware projections, and a trained prediction model remain later features.
 
 Production must use HTTPS so secure session cookies can be sent. The included deployment serves the frontend and API from one origin; configure `WEB_ORIGIN` only if they are hosted separately.
 

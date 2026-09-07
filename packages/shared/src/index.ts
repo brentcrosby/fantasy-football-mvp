@@ -11,6 +11,7 @@ export interface Player {
   byeWeek: number;
   injuryStatus: InjuryStatus;
   projectedPoints: number;
+  hasProjection?: boolean;
   targetShare?: number;
 }
 
@@ -53,8 +54,54 @@ export interface PersistedFantasyTeam {
   name: string;
   settings: LeagueSettings;
   roster: RosterPlayer[];
+  sleeper: SleeperTeamConnection | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface SleeperTeamConnection {
+  leagueId: string;
+  rosterId: number;
+  userId: string;
+  username: string;
+  syncedAt: string;
+}
+
+export interface SleeperUserSummary {
+  id: string;
+  username: string;
+  displayName: string;
+}
+
+export interface SleeperLeagueSummary {
+  id: string;
+  name: string;
+  season: number;
+  status: string;
+}
+
+export interface SleeperLeagueLookup {
+  user: SleeperUserSummary;
+  season: number;
+  leagues: SleeperLeagueSummary[];
+}
+
+export interface SleeperImportRequest {
+  username: string;
+  leagueId: string;
+}
+
+export interface SleeperImportPreview {
+  user: SleeperUserSummary;
+  league: SleeperLeagueSummary;
+  teamName: string;
+  settings: LeagueSettings | null;
+  rosterPlayers: Player[];
+  unmatchedPlayerIds: string[];
+  unsupportedLineupSlots: string[];
+  warnings: string[];
+  canImport: boolean;
+  existingTeamId: string | null;
 }
 
 export interface TeamWriteRequest {
@@ -191,6 +238,10 @@ function buildRiskNotes(request: RecommendationRequest): string[] {
 
     if (player.injuryStatus !== "HEALTHY") {
       notes.push(`${player.name} is listed as ${player.injuryStatus.toLowerCase().replace("_", " ")}.`);
+    }
+
+    if (player.hasProjection === false) {
+      notes.push(`${player.name} does not have a current point projection.`);
     }
 
     return notes;

@@ -8,6 +8,7 @@ import { authRouter } from "./routes/auth.js";
 import { healthRouter } from "./routes/health.js";
 import { playersRouter } from "./routes/players.js";
 import { recommendationsRouter } from "./routes/recommendations.js";
+import { sleeperRouter } from "./routes/sleeper.js";
 import { teamsRouter } from "./routes/teams.js";
 
 export const app = express();
@@ -46,6 +47,7 @@ app.use("/health", healthRouter);
 app.use("/api/auth", authRouter);
 app.use("/api/players", playersRouter);
 app.use("/api/recommendations", recommendationsRouter);
+app.use("/api/sleeper", sleeperRouter);
 app.use("/api/teams", teamsRouter);
 
 const notFoundHandler = (_request: express.Request, response: express.Response) => {

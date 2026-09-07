@@ -21,6 +21,7 @@ Build a concise full-stack project that proves application development fundament
 5. [x] Save weekly recommendation reports.
 6. [x] Deploy frontend, API, and database.
 7. [x] Sync current weekly player metadata, injuries, bye weeks, and projections.
+8. [x] Preview, import, and refresh current-season Sleeper rosters.
 
 The live application uses same-origin production serving, startup validation, database health checks, authentication throttling, GitHub CI, a Render Blueprint, and a validated live-data sync with a stable fallback catalog.
 
@@ -35,7 +36,6 @@ The live application uses same-origin production serving, startup validation, da
 
 ## Later Features
 
-- Sleeper import.
 - Automated projection refresh independent of application restarts.
 - AI-generated explanation text from structured recommendation results.
 - Prediction model trained against historical fantasy points.
