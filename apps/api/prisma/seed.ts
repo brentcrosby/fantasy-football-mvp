@@ -17,7 +17,8 @@ try {
           byeWeek: player.byeWeek,
           injuryStatus: player.injuryStatus,
           projectedPoints: player.projectedPoints,
-          targetShare: player.targetShare
+          targetShare: player.targetShare,
+          dataSource: player.dataSource
         }
       })
     )

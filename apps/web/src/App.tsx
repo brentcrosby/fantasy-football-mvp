@@ -6,6 +6,7 @@ import {
   type LineupSlot,
   type PersistedFantasyTeam,
   type Player,
+  type PlayerCatalogMetadata,
   type RecommendationReport,
   type SavedWeeklyReport,
   type ScoringFormat,
@@ -51,6 +52,7 @@ export function App() {
   const [currentUser, setCurrentUser] = useState<AuthenticatedUser | null>(null);
   const [teams, setTeams] = useState<PersistedFantasyTeam[]>([]);
   const [availablePlayers, setAvailablePlayers] = useState<Player[]>([]);
+  const [playerCatalogMetadata, setPlayerCatalogMetadata] = useState<PlayerCatalogMetadata | null>(null);
   const [selectedPlayers, setSelectedPlayers] = useState<Player[]>([]);
   const [teamId, setTeamId] = useState<string | null>(null);
   const [teamName, setTeamName] = useState("");
@@ -172,7 +174,12 @@ export function App() {
     const [playersResult, teamsResult] = await Promise.allSettled([fetchPlayers(), fetchTeams()]);
 
     if (playersResult.status === "fulfilled") {
-      setAvailablePlayers(playersResult.value);
+      setAvailablePlayers(playersResult.value.players);
+      setPlayerCatalogMetadata(playersResult.value.metadata);
+
+      if (playersResult.value.metadata.source === "LIVE" && playersResult.value.metadata.week) {
+        setWeek(playersResult.value.metadata.week);
+      }
     } else {
       setPlayersError(errorMessage(playersResult.reason, "Something went wrong loading players."));
     }
@@ -261,6 +268,7 @@ export function App() {
       setCurrentUser(null);
       setTeams([]);
       setAvailablePlayers([]);
+      setPlayerCatalogMetadata(null);
       resetTeamDraft();
       setAuthError(null);
     } catch (apiError) {
@@ -441,12 +449,14 @@ export function App() {
             week={week}
             scoringFormat={scoringFormat}
             disabled={savingTeam}
+            weekLocked={playerCatalogMetadata?.source === "LIVE"}
             onWeekChange={setWeek}
             onScoringFormatChange={handleScoringFormatChange}
           />
           <RosterEditor
             players={availablePlayers}
             selectedPlayers={selectedPlayers}
+            metadata={playerCatalogMetadata}
             onAddPlayer={addPlayer}
             onRemovePlayer={removePlayer}
             loading={playersLoading}

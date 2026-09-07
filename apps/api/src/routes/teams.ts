@@ -4,6 +4,7 @@ import { buildLineupRecommendation, type RecommendationRequest } from "@fantasy-
 
 import { ApiError } from "../lib/apiError.js";
 import { teamWithRoster, toPlayerDto, toSavedWeeklyReportDto, toTeamDto } from "../lib/mappers.js";
+import { assertProjectionWeek } from "../lib/playerProjection.js";
 import { prisma } from "../lib/prisma.js";
 import { getAuthenticatedUser, requireAuth } from "../lib/session.js";
 import { saveWeeklyReportRequestSchema, teamIdSchema, teamWriteRequestSchema } from "../lib/validation.js";
@@ -96,6 +97,11 @@ teamsRouter.post("/:teamId/reports", async (request, response) => {
   if (team.rosterMemberships.length === 0) {
     throw new ApiError(422, "Add at least one player before saving a weekly report.");
   }
+
+  assertProjectionWeek(
+    team.rosterMemberships.map(({ player }) => player),
+    parsed.data.week
+  );
 
   const roster = team.rosterMemberships
     .map(({ player }) => ({ player: toPlayerDto(player) }))

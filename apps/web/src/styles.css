@@ -512,6 +512,111 @@ h3 {
   margin: 0 18px 18px;
 }
 
+.catalog-status {
+  display: flex;
+  min-height: 38px;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 18px;
+  border-bottom: 1px solid var(--line);
+  background: #0d1110;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.catalog-status strong {
+  color: var(--green);
+}
+
+.catalog-status span:last-child {
+  margin-left: auto;
+}
+
+.player-toolbar {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.player-search {
+  display: grid;
+  min-width: min(280px, 100%);
+  gap: 5px;
+}
+
+.player-search span {
+  color: var(--dim);
+  font-size: 0.62rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.player-search input {
+  width: 100%;
+  min-height: 38px;
+  border: 1px solid var(--line-strong);
+  border-radius: 3px;
+  padding: 0 11px;
+  background: #0b0f0e;
+  color: var(--text);
+}
+
+.player-search input:focus {
+  border-color: var(--green);
+  outline: 0;
+  box-shadow: 0 0 0 2px rgba(157, 247, 111, 0.15);
+}
+
+.position-filters {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(38px, 1fr));
+  border: 1px solid var(--line-strong);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.position-filters button {
+  min-width: 38px;
+  min-height: 36px;
+  border: 0;
+  border-left: 1px solid var(--line);
+  background: #0d1110;
+  color: var(--muted);
+  font-size: 0.64rem;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.position-filters button:first-child {
+  border-left: 0;
+}
+
+.position-filters button:hover,
+.position-filters button.is-active {
+  background: var(--green-dark);
+  color: var(--green);
+}
+
+.player-empty {
+  padding: 24px 18px !important;
+}
+
+.player-results-count {
+  margin: 0;
+  padding: 7px 18px;
+  border-bottom: 1px solid var(--line);
+  background: #0d1110;
+  color: var(--dim);
+  font-size: 0.62rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
 .player-list {
   display: grid;
   margin: 0;
@@ -1139,6 +1244,35 @@ h3 {
 
   .player-table-header {
     display: none;
+  }
+
+  .catalog-status {
+    flex-wrap: wrap;
+    gap: 5px 10px;
+    padding: 9px 14px;
+  }
+
+  .catalog-status span:last-child {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .player-toolbar {
+    display: grid;
+    gap: 10px;
+    padding: 12px 14px;
+  }
+
+  .player-search {
+    min-width: 0;
+  }
+
+  .position-filters {
+    width: 100%;
+  }
+
+  .position-filters button {
+    min-width: 0;
   }
 
   .player-row {

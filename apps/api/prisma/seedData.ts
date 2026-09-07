@@ -1,4 +1,4 @@
-import type { InjuryStatus, Position } from "@prisma/client";
+import type { InjuryStatus, PlayerDataSource, Position } from "@prisma/client";
 
 export interface SeedPlayer {
   id: string;
@@ -9,6 +9,7 @@ export interface SeedPlayer {
   injuryStatus: InjuryStatus;
   projectedPoints: number;
   targetShare: number | null;
+  dataSource: PlayerDataSource;
 }
 
 export const seedPlayers: SeedPlayer[] = [
@@ -20,7 +21,8 @@ export const seedPlayers: SeedPlayer[] = [
     byeWeek: 7,
     injuryStatus: "HEALTHY",
     projectedPoints: 22.8,
-    targetShare: null
+    targetShare: null,
+    dataSource: "SEED"
   },
   {
     id: "p2",
@@ -30,7 +32,8 @@ export const seedPlayers: SeedPlayer[] = [
     byeWeek: 8,
     injuryStatus: "HEALTHY",
     projectedPoints: 17.2,
-    targetShare: 0.16
+    targetShare: 0.16,
+    dataSource: "SEED"
   },
   {
     id: "p3",
@@ -40,7 +43,8 @@ export const seedPlayers: SeedPlayer[] = [
     byeWeek: 10,
     injuryStatus: "QUESTIONABLE",
     projectedPoints: 14.5,
-    targetShare: 0.09
+    targetShare: 0.09,
+    dataSource: "SEED"
   },
   {
     id: "p4",
@@ -50,7 +54,8 @@ export const seedPlayers: SeedPlayer[] = [
     byeWeek: 12,
     injuryStatus: "HEALTHY",
     projectedPoints: 13.6,
-    targetShare: 0.21
+    targetShare: 0.21,
+    dataSource: "SEED"
   },
   {
     id: "p5",
@@ -60,7 +65,8 @@ export const seedPlayers: SeedPlayer[] = [
     byeWeek: 11,
     injuryStatus: "HEALTHY",
     projectedPoints: 12.9,
-    targetShare: 0.24
+    targetShare: 0.24,
+    dataSource: "SEED"
   },
   {
     id: "p6",
@@ -70,7 +76,8 @@ export const seedPlayers: SeedPlayer[] = [
     byeWeek: 8,
     injuryStatus: "HEALTHY",
     projectedPoints: 11.8,
-    targetShare: 0.2
+    targetShare: 0.2,
+    dataSource: "SEED"
   },
   {
     id: "p7",
@@ -80,7 +87,8 @@ export const seedPlayers: SeedPlayer[] = [
     byeWeek: 14,
     injuryStatus: "HEALTHY",
     projectedPoints: 10.2,
-    targetShare: 0.05
+    targetShare: 0.05,
+    dataSource: "SEED"
   },
   {
     id: "p8",
@@ -90,7 +98,8 @@ export const seedPlayers: SeedPlayer[] = [
     byeWeek: 10,
     injuryStatus: "HEALTHY",
     projectedPoints: 8.9,
-    targetShare: null
+    targetShare: null,
+    dataSource: "SEED"
   },
   {
     id: "p9",
@@ -100,7 +109,8 @@ export const seedPlayers: SeedPlayer[] = [
     byeWeek: 9,
     injuryStatus: "HEALTHY",
     projectedPoints: 8.4,
-    targetShare: null
+    targetShare: null,
+    dataSource: "SEED"
   },
   {
     id: "p10",
@@ -110,7 +120,8 @@ export const seedPlayers: SeedPlayer[] = [
     byeWeek: 9,
     injuryStatus: "OUT",
     projectedPoints: 12.4,
-    targetShare: 0.19
+    targetShare: 0.19,
+    dataSource: "SEED"
   },
   {
     id: "p11",
@@ -120,6 +131,7 @@ export const seedPlayers: SeedPlayer[] = [
     byeWeek: 10,
     injuryStatus: "HEALTHY",
     projectedPoints: 9.7,
-    targetShare: 0.17
+    targetShare: 0.17,
+    dataSource: "SEED"
   }
 ];

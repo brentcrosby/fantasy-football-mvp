@@ -2,7 +2,7 @@ import type {
   AuthCredentials,
   AuthenticatedUser,
   PersistedFantasyTeam,
-  Player,
+  PlayerCatalog,
   RecommendationApiRequest,
   RecommendationReport,
   SavedWeeklyReport,
@@ -42,20 +42,20 @@ export async function logout(): Promise<void> {
   }
 }
 
-export async function fetchPlayers(): Promise<Player[]> {
+export async function fetchPlayers(): Promise<PlayerCatalog> {
   const response = await apiFetch("/api/players");
 
   if (!response.ok) {
     throw await buildRequestError(response, "Could not load available players.");
   }
 
-  const payload = (await response.json()) as { players?: Player[] };
+  const payload = (await response.json()) as Partial<PlayerCatalog>;
 
-  if (!Array.isArray(payload.players)) {
-    throw new Error("The players response was missing the players list.");
+  if (!Array.isArray(payload.players) || !payload.metadata) {
+    throw new Error("The players response was missing catalog data.");
   }
 
-  return payload.players;
+  return { players: payload.players, metadata: payload.metadata };
 }
 
 export async function fetchTeams(): Promise<PersistedFantasyTeam[]> {

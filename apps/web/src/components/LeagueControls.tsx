@@ -10,11 +10,19 @@ interface LeagueControlsProps {
   week: number;
   scoringFormat: ScoringFormat;
   disabled: boolean;
+  weekLocked: boolean;
   onWeekChange: (week: number) => void;
   onScoringFormatChange: (scoringFormat: ScoringFormat) => void;
 }
 
-export function LeagueControls({ week, scoringFormat, disabled, onWeekChange, onScoringFormatChange }: LeagueControlsProps) {
+export function LeagueControls({
+  week,
+  scoringFormat,
+  disabled,
+  weekLocked,
+  onWeekChange,
+  onScoringFormatChange
+}: LeagueControlsProps) {
   return (
     <section className="panel league-controls" aria-labelledby="league-controls-heading">
       <div className="section-header">
@@ -27,7 +35,13 @@ export function LeagueControls({ week, scoringFormat, disabled, onWeekChange, on
       <div className="control-grid">
         <label className="field" htmlFor="week">
           <span>NFL Week</span>
-          <select id="week" value={week} disabled={disabled} onChange={(event) => onWeekChange(Number(event.target.value))}>
+          <select
+            id="week"
+            value={week}
+            disabled={disabled || weekLocked}
+            title={weekLocked ? "The player catalog contains projections for this week." : undefined}
+            onChange={(event) => onWeekChange(Number(event.target.value))}
+          >
             {Array.from({ length: 18 }, (_value, index) => index + 1).map((weekNumber) => (
               <option key={weekNumber} value={weekNumber}>
                 Week {weekNumber}

@@ -14,6 +14,19 @@ export interface Player {
   targetShare?: number;
 }
 
+export interface PlayerCatalogMetadata {
+  source: "LIVE" | "SAMPLE";
+  sourceLabel: string;
+  season: number | null;
+  week: number | null;
+  updatedAt: string | null;
+}
+
+export interface PlayerCatalog {
+  players: Player[];
+  metadata: PlayerCatalogMetadata;
+}
+
 export interface RosterPlayer {
   player: Player;
 }

@@ -2,6 +2,8 @@
 
 Fantasy Football Lineup Assistant is a full-stack MVP for managing a fantasy roster and generating weekly lineup recommendations from roster constraints, scoring format, bye weeks, injury status, and projected points.
 
+**Live application:** [fantasy-football-lineup-assistant.onrender.com](https://fantasy-football-lineup-assistant.onrender.com/)
+
 ## MVP Scope
 
 - Create and review a fantasy team roster.
@@ -52,12 +54,13 @@ cp apps/api/.env.example apps/api/.env
 cp apps/web/.env.example apps/web/.env
 ```
 
-Start PostgreSQL, apply the migration, and seed the stable sample-player catalog:
+Start PostgreSQL, apply the migration, seed the stable sample-player catalog, and sync the current weekly player data:
 
 ```bash
 docker compose up -d db
 npm run db:deploy
 npm run db:seed
+npm run data:sync
 ```
 
 Run the app locally:
@@ -71,6 +74,24 @@ The API defaults to `http://localhost:4000`. The Vite frontend will print its lo
 Accounts, sessions, team ownership, scoring settings, ordered lineup slots, rosters, and saved reports remain authoritative in PostgreSQL. Passwords are hashed with Node.js `scrypt`; raw session tokens are never stored in the database.
 
 Saved reports are generated on the server from the persisted team and canonical player records. Each entry preserves the team name, scoring settings, roster, projections, availability, and recommendation result as they existed when saved.
+
+## Live Player Data
+
+The sync pipeline joins three structured sources:
+
+- [Sleeper's read-only NFL API](https://docs.sleeper.com/) for current player IDs, teams, fantasy positions, and injury designations.
+- [DynastyProcess player IDs](https://github.com/dynastyprocess/data) to map FantasyPros IDs to Sleeper IDs.
+- DynastyProcess's weekly FantasyPros feed for current-week consensus point projections and bye weeks.
+
+Only a fully parsed and validated batch is activated. The API continues serving the stable sample catalog if no successful live sync exists, and production startup can retain the previous catalog if a provider is temporarily unavailable. Syncs are skipped while the stored batch is less than 24 hours old to respect Sleeper's published usage guidance.
+
+Live projections are tied to the reported NFL week. The UI locks lineup generation to that week, and the API rejects mismatched weeks. Existing sample-player roster memberships are reconciled to matching live players without changing immutable saved report snapshots.
+
+Force a local refresh when validating the importer:
+
+```bash
+npm --workspace @fantasy-football/api run data:sync -- --force
+```
 
 Existing teams created before the authentication migration are preserved as unowned legacy records. Authenticated team routes expose only teams owned by the current account.
 
@@ -103,13 +124,13 @@ The cleanup guard refuses to run against the development `public` schema. Tests 
 
 ## Current Status
 
-The application now uses secure cookie sessions, user-owned PostgreSQL teams, a deterministic lineup engine, immutable weekly report history, and automated CI. Production deployment is configured but is not complete until a live instance is provisioned and verified. External league imports and live NFL data remain later features.
+The application is deployed on Render with secure cookie sessions, user-owned PostgreSQL teams, current weekly NFL player data, a deterministic lineup engine, immutable weekly report history, and automated CI. External league imports, waiver analysis, and a trained prediction model remain later features.
 
 Production must use HTTPS so secure session cookies can be sent. The included deployment serves the frontend and API from one origin; configure `WEB_ORIGIN` only if they are hosted separately.
 
 ## Render Deployment
 
-The repository includes `render.yaml` for a single same-origin web service and a PostgreSQL database. The Express service serves the built React application, runs pending migrations and the idempotent player seed at startup, exposes a database-aware `/health` endpoint, and uses secure cookies in production.
+The repository includes `render.yaml` for a single same-origin web service and a PostgreSQL database. The Express service serves the built React application, runs pending migrations, seeds the fallback catalog, refreshes live player data when stale, exposes a database-aware `/health` endpoint, and uses secure cookies in production.
 
 To deploy:
 

@@ -17,6 +17,7 @@
     "db:migrate": "npm run prisma:migrate --workspace @fantasy-football/api",
     "db:deploy": "npm run prisma:migrate:deploy --workspace @fantasy-football/api",
     "db:seed": "npm run prisma:seed --workspace @fantasy-football/api",
+    "data:sync": "npm run data:sync --workspace @fantasy-football/api",
     "test": "npm run test --workspace @fantasy-football/api"
   },
   "engines": {
