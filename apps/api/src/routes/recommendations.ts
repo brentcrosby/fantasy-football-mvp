@@ -4,6 +4,7 @@ import { buildLineupRecommendation, type RecommendationRequest } from "@fantasy-
 
 import { ApiError } from "../lib/apiError.js";
 import { toPlayerDto } from "../lib/mappers.js";
+import { assertProjectionWeek } from "../lib/playerProjection.js";
 import { prisma } from "../lib/prisma.js";
 import { recommendationApiRequestSchema } from "../lib/validation.js";
 
@@ -27,6 +28,8 @@ recommendationsRouter.post("/", async (request, response) => {
   if (unknownPlayerIds.length > 0) {
     throw new ApiError(422, "One or more players were not found.", { unknownPlayerIds });
   }
+
+  assertProjectionWeek(players, parsed.data.week);
 
   const recommendationRequest: RecommendationRequest = {
     week: parsed.data.week,

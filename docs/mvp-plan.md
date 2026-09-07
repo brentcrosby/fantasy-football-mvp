@@ -19,9 +19,10 @@ Build a concise full-stack project that proves application development fundament
 3. [x] Add manual roster management backed by Postgres.
 4. [x] Add auth and user-owned teams.
 5. [x] Save weekly recommendation reports.
-6. [ ] Deploy frontend, API, and database.
+6. [x] Deploy frontend, API, and database.
+7. [x] Sync current weekly player metadata, injuries, bye weeks, and projections.
 
-Deployment readiness is implemented with same-origin production serving, startup validation, database health checks, authentication throttling, GitHub CI, and a Render Blueprint. The milestone remains incomplete until the live environment is provisioned and verified.
+The live application uses same-origin production serving, startup validation, database health checks, authentication throttling, GitHub CI, a Render Blueprint, and a validated live-data sync with a stable fallback catalog.
 
 ## Recommendation Rules
 
@@ -35,7 +36,7 @@ Deployment readiness is implemented with same-origin production serving, startup
 ## Later Features
 
 - Sleeper import.
-- Real weekly NFL data ingestion.
+- Automated projection refresh independent of application restarts.
 - AI-generated explanation text from structured recommendation results.
 - Prediction model trained against historical fantasy points.
 - Trade and waiver analysis.

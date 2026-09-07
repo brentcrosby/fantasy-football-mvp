@@ -53,7 +53,25 @@ model Player {
   injuryStatus      InjuryStatus       @default(HEALTHY)
   projectedPoints   Float
   targetShare       Float?
+  dataSource        PlayerDataSource   @default(SEED)
+  externalId        String?            @db.VarChar(50)
+  season            Int?
+  projectionWeek    Int?
+  dataUpdatedAt     DateTime?
   rosterMemberships RosterMembership[]
+
+  @@unique([dataSource, externalId])
+  @@index([dataSource, season, projectionWeek])
+}
+
+model PlayerDataSync {
+  id              String   @id @db.VarChar(50)
+  season          Int
+  week            Int
+  source          String   @db.VarChar(150)
+  recordCount     Int
+  sourceUpdatedAt DateTime
+  syncedAt        DateTime
 }
 
 model RosterMembership {
@@ -113,4 +131,9 @@ enum InjuryStatus {
   OUT
   IR
   SUSPENDED
+}
+
+enum PlayerDataSource {
+  SEED
+  LIVE
 }
