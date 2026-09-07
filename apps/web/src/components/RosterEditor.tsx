@@ -130,7 +130,7 @@ export function RosterEditor({
                     <dl className="player-meta" aria-label={`${player.name} details`}>
                       <div>
                         <dt>Proj</dt>
-                        <dd>{player.projectedPoints.toFixed(1)}</dd>
+                        <dd>{player.hasProjection === false ? "--" : player.projectedPoints.toFixed(1)}</dd>
                       </div>
                       <div>
                         <dt>Bye</dt>

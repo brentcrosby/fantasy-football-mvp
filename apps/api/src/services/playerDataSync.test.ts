@@ -23,6 +23,12 @@ test("builds current offensive players and defenses from provider fixtures", () 
         team: "BUF",
         fantasy_positions: ["QB"],
         injury_status: "Questionable"
+      },
+      "7000": {
+        full_name: "Depth Receiver",
+        team: "BUF",
+        fantasy_positions: ["WR"],
+        injury_status: null
       }
     },
     rankingsCsv: [
@@ -34,8 +40,9 @@ test("builds current offensive players and defenses from provider fixtures", () 
     crosswalkCsv: ["fantasypros_id,sleeper_id", "17298,4984", "99999,NA"].join("\n")
   });
 
-  assert.equal(batch.players.length, 2);
-  assert.deepEqual(batch.players[0], {
+  assert.equal(batch.players.length, 3);
+  const defense = batch.players.find((player) => player.id === "sleeper:JAX");
+  assert.deepEqual(defense, {
     id: "sleeper:JAX",
     name: "Jacksonville Jaguars",
     position: "DST",
@@ -43,6 +50,7 @@ test("builds current offensive players and defenses from provider fixtures", () 
     byeWeek: 7,
     injuryStatus: "HEALTHY",
     projectedPoints: 7.4,
+    hasProjection: true,
     targetShare: null,
     dataSource: "LIVE",
     externalId: "JAX",
@@ -50,8 +58,13 @@ test("builds current offensive players and defenses from provider fixtures", () 
     projectionWeek: 1,
     dataUpdatedAt: new Date("2026-09-07T00:00:00.000Z")
   });
-  assert.equal(batch.players[1].id, "sleeper:4984");
-  assert.equal(batch.players[1].injuryStatus, "QUESTIONABLE");
+  const quarterback = batch.players.find((player) => player.id === "sleeper:4984");
+  assert(quarterback);
+  assert.equal(quarterback.injuryStatus, "QUESTIONABLE");
+  const depthPlayer = batch.players.find((player) => player.id === "sleeper:7000");
+  assert(depthPlayer);
+  assert.equal(depthPlayer.projectedPoints, 0);
+  assert.equal(depthPlayer.hasProjection, false);
   assert.equal(batch.sourceUpdatedAt.toISOString(), "2026-09-07T00:00:00.000Z");
 });
 

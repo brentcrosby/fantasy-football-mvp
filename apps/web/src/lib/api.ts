@@ -7,6 +7,9 @@ import type {
   RecommendationReport,
   SavedWeeklyReport,
   SaveWeeklyReportRequest,
+  SleeperImportPreview,
+  SleeperImportRequest,
+  SleeperLeagueLookup,
   TeamWriteRequest
 } from "@fantasy-football/shared";
 
@@ -90,6 +93,50 @@ export async function createTeam(request: TeamWriteRequest): Promise<PersistedFa
 
 export async function updateTeam(teamId: string, request: TeamWriteRequest): Promise<PersistedFantasyTeam> {
   return writeTeam(`/api/teams/${encodeURIComponent(teamId)}`, "PUT", request, "Could not update the team.");
+}
+
+export async function lookupSleeperLeagues(username: string): Promise<SleeperLeagueLookup> {
+  const response = await apiFetch(`/api/sleeper/leagues?username=${encodeURIComponent(username)}`);
+
+  if (!response.ok) {
+    throw await buildRequestError(response, "Could not find Sleeper leagues.");
+  }
+
+  return (await response.json()) as SleeperLeagueLookup;
+}
+
+export async function previewSleeperImport(request: SleeperImportRequest): Promise<SleeperImportPreview> {
+  const response = await apiFetch("/api/sleeper/preview", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(request)
+  });
+
+  if (!response.ok) {
+    throw await buildRequestError(response, "Could not preview the Sleeper team.");
+  }
+
+  const payload = (await response.json()) as { preview?: SleeperImportPreview };
+
+  if (!payload.preview) {
+    throw new Error("The Sleeper response was missing the import preview.");
+  }
+
+  return payload.preview;
+}
+
+export async function importSleeperTeam(request: SleeperImportRequest): Promise<PersistedFantasyTeam> {
+  const response = await apiFetch("/api/sleeper/import", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(request)
+  });
+
+  if (!response.ok) {
+    throw await buildRequestError(response, "Could not import the Sleeper team.");
+  }
+
+  return readTeamResponse(response);
 }
 
 export async function generateRecommendation(request: RecommendationApiRequest): Promise<RecommendationReport> {

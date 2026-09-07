@@ -62,3 +62,14 @@ export const authCredentialsSchema = z
     password: z.string().min(10).max(128)
   })
   .strict();
+
+export const sleeperUsernameSchema = z.string().trim().min(1).max(50);
+
+export const sleeperLeagueIdSchema = z.string().trim().regex(/^\d+$/, "Sleeper league ID must be numeric.").max(30);
+
+export const sleeperImportRequestSchema = z
+  .object({
+    username: sleeperUsernameSchema,
+    leagueId: sleeperLeagueIdSchema
+  })
+  .strict();

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import type { Server } from "node:http";
+import { createServer, type Server } from "node:http";
 import { once } from "node:events";
 import { after, before, test } from "node:test";
 
@@ -19,6 +19,7 @@ import { assertTestDatabaseUrl } from "./lib/testDatabaseGuard.js";
 const testNamePrefix = "[integration]";
 const testEmailPrefix = "integration-test-";
 const testPassword = "test-password-123";
+const sleeperTestPlayerIds = ["integration-sleeper-qb", "integration-sleeper-rb"];
 const defaultSettings = {
   scoringFormat: "HALF_PPR" as const,
   lineupSlots: ["QB", "RB", "RB", "WR", "WR", "TE", "FLEX", "K", "DST"] as const
@@ -59,6 +60,8 @@ after(async () => {
       assertTestDatabaseUrl();
       await prisma.fantasyTeam.deleteMany({ where: { name: { startsWith: testNamePrefix } } });
       await prisma.user.deleteMany({ where: { email: { startsWith: testEmailPrefix } } });
+      await prisma.player.deleteMany({ where: { id: { in: sleeperTestPlayerIds } } });
+      await prisma.playerDataSync.deleteMany({ where: { id: "weekly-player-data" } });
     } catch (error) {
       teardownErrors.push(error);
     }
@@ -101,6 +104,7 @@ test("requires authentication for team routes", async () => {
   assert.equal(list.status, 401);
   assert.equal(create.status, 401);
   assert.equal((await apiRequest("/api/teams/unowned/reports", { cookie: null })).status, 401);
+  assert.equal((await apiRequest("/api/sleeper/leagues?username=testcoach", { cookie: null })).status, 401);
   assert.equal(
     (await apiRequest("/api/teams/unowned/reports", { method: "POST", body: { week: 1 }, cookie: null })).status,
     401
@@ -492,6 +496,129 @@ test("validates weekly report requests and rejects empty rosters", async () => {
   assert.equal(emptyRosterResponse.status, 422);
   assert.equal((emptyRosterResponse.body as { error: string }).error, "Add at least one player before saving a weekly report.");
 });
+
+test("previews, imports, and refreshes an owned Sleeper roster", async () => {
+  const sleeperServer = createServer((request, response) => {
+    const fixtures: Record<string, unknown> = {
+      "/v1/user/testcoach": { user_id: "sleeper-user-1", username: "testcoach", display_name: "Test Coach" },
+      "/v1/state/nfl": { season: "2026", season_type: "regular" },
+      "/v1/user/sleeper-user-1/leagues/nfl/2026": [sleeperLeagueFixture()],
+      "/v1/league/123456789": sleeperLeagueFixture(),
+      "/v1/league/123456789/rosters": [
+        { roster_id: 7, owner_id: "sleeper-user-1", players: ["4984", "9221"] }
+      ],
+      "/v1/league/123456789/users": [
+        { user_id: "sleeper-user-1", metadata: { team_name: `${testNamePrefix} Sleeper Team` } }
+      ]
+    };
+    const payload = fixtures[request.url ?? ""];
+
+    response.statusCode = payload === undefined ? 404 : 200;
+    response.setHeader("Content-Type", "application/json");
+    response.end(JSON.stringify(payload ?? null));
+  });
+  await new Promise<void>((resolve) => sleeperServer.listen(0, "127.0.0.1", resolve));
+  const address = sleeperServer.address();
+  assert(address && typeof address === "object");
+  const previousSleeperApiBaseUrl = process.env.SLEEPER_API_BASE_URL;
+  process.env.SLEEPER_API_BASE_URL = `http://127.0.0.1:${address.port}/v1`;
+
+  try {
+    await prisma.playerDataSync.upsert({
+      where: { id: "weekly-player-data" },
+      create: {
+        id: "weekly-player-data",
+        season: 2026,
+        week: 1,
+        source: "Integration fixtures",
+        recordCount: 2,
+        sourceUpdatedAt: new Date("2026-09-07T00:00:00.000Z"),
+        syncedAt: new Date("2026-09-07T00:00:00.000Z")
+      },
+      update: { season: 2026, week: 1, recordCount: 2 }
+    });
+    await prisma.player.createMany({
+      data: [
+        sleeperPlayerFixture("integration-sleeper-qb", "4984", "Josh Allen", "QB", 19.8),
+        sleeperPlayerFixture("integration-sleeper-rb", "9221", "Jahmyr Gibbs", "RB", 21.6)
+      ]
+    });
+
+    const leagues = await apiRequest("/api/sleeper/leagues?username=testcoach");
+    assert.equal(leagues.status, 200);
+    assert.equal((leagues.body as { leagues: unknown[] }).leagues.length, 1);
+
+    const previewResponse = await apiRequest("/api/sleeper/preview", {
+      method: "POST",
+      body: { username: "testcoach", leagueId: "123456789" }
+    });
+    assert.equal(previewResponse.status, 200);
+    const preview = (previewResponse.body as { preview: { canImport: boolean; rosterPlayers: unknown[] } }).preview;
+    assert.equal(preview.canImport, true);
+    assert.equal(preview.rosterPlayers.length, 2);
+
+    const firstImport = await apiRequest("/api/sleeper/import", {
+      method: "POST",
+      body: { username: "testcoach", leagueId: "123456789" }
+    });
+    assert.equal(firstImport.status, 201);
+    const importedTeam = (firstImport.body as { team: PersistedFantasyTeam }).team;
+    assert.equal(importedTeam.sleeper?.leagueId, "123456789");
+    assert.equal(importedTeam.sleeper?.username, "testcoach");
+    assert.equal(importedTeam.settings.scoringFormat, "HALF_PPR");
+    assert.deepEqual(importedTeam.roster.map(({ player }) => player.id).sort(), [...sleeperTestPlayerIds].sort());
+
+    const refresh = await apiRequest("/api/sleeper/import", {
+      method: "POST",
+      body: { username: "testcoach", leagueId: "123456789" }
+    });
+    assert.equal(refresh.status, 200);
+    assert.equal((refresh.body as { team: PersistedFantasyTeam }).team.id, importedTeam.id);
+  } finally {
+    if (previousSleeperApiBaseUrl === undefined) {
+      delete process.env.SLEEPER_API_BASE_URL;
+    } else {
+      process.env.SLEEPER_API_BASE_URL = previousSleeperApiBaseUrl;
+    }
+    await closeServer(sleeperServer);
+  }
+});
+
+function sleeperLeagueFixture() {
+  return {
+    league_id: "123456789",
+    name: "Integration League",
+    season: "2026",
+    status: "in_season",
+    sport: "nfl",
+    roster_positions: ["QB", "RB", "WR", "TE", "FLEX", "K", "DEF", "BN"],
+    scoring_settings: { rec: 0.5 }
+  };
+}
+
+function sleeperPlayerFixture(
+  id: string,
+  externalId: string,
+  name: string,
+  position: "QB" | "RB",
+  projectedPoints: number
+) {
+  return {
+    id,
+    name,
+    position,
+    nflTeam: position === "QB" ? "BUF" : "DET",
+    byeWeek: position === "QB" ? 7 : 6,
+    injuryStatus: "HEALTHY" as const,
+    projectedPoints,
+    hasProjection: true,
+    dataSource: "LIVE" as const,
+    externalId,
+    season: 2026,
+    projectionWeek: 1,
+    dataUpdatedAt: new Date("2026-09-07T00:00:00.000Z")
+  };
+}
 
 async function createTeam(name: string, rosterPlayerIds: string[]): Promise<PersistedFantasyTeam> {
   const response = await apiRequest("/api/teams", { method: "POST", body: buildTeamBody(name, rosterPlayerIds) });

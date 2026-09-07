@@ -19,6 +19,7 @@ import { ReportPanel } from "./components/ReportPanel";
 import { ReportHistory } from "./components/ReportHistory";
 import { RiskPanel } from "./components/RiskPanel";
 import { RosterEditor } from "./components/RosterEditor";
+import { SleeperImportPanel } from "./components/SleeperImportPanel";
 import { TeamControls, type TeamPersistenceStatus } from "./components/TeamControls";
 import {
   createTeam,
@@ -83,6 +84,7 @@ export function App() {
   const [loggingOut, setLoggingOut] = useState(false);
 
   const currentInputs = buildReportInputs(week, scoringFormat, lineupSlots, selectedPlayers);
+  const currentTeam = teams.find((team) => team.id === teamId) ?? null;
   const currentTeamSnapshot = buildTeamSnapshot(teamName, scoringFormat, lineupSlots, selectedPlayers);
   const isTeamDirty = savedTeamSnapshot === null || !teamSnapshotsMatch(currentTeamSnapshot, savedTeamSnapshot);
   const isReportStale = report !== null && reportInputs !== null && !inputsMatch(currentInputs, reportInputs);
@@ -332,6 +334,14 @@ export function App() {
     }
   }
 
+  function handleSleeperImported(importedTeam: PersistedFantasyTeam) {
+    hydrateTeam(importedTeam);
+    setTeams((currentTeams) => [importedTeam, ...currentTeams.filter((team) => team.id !== importedTeam.id)]);
+    setTeamLoadError(null);
+    setTeamSaveError(null);
+    setLoadErrorBlocksSave(false);
+  }
+
   async function handleGenerateLineup() {
     if (selectedPlayers.length === 0 || submitting) {
       return;
@@ -430,6 +440,11 @@ export function App() {
 
       <div className="workflow-grid">
         <div className="workflow-main">
+          <SleeperImportPanel
+            connection={currentTeam?.sleeper ?? null}
+            disabled={savingTeam || teamLoading}
+            onImported={handleSleeperImported}
+          />
           <TeamControls
             name={teamName}
             status={persistenceStatus}

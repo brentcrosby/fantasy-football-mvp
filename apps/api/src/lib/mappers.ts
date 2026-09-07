@@ -26,6 +26,7 @@ export function toPlayerDto(player: PrismaPlayer): Player {
     byeWeek: player.byeWeek,
     injuryStatus: player.injuryStatus,
     projectedPoints: player.projectedPoints,
+    hasProjection: player.hasProjection,
     ...(player.targetShare === null ? {} : { targetShare: player.targetShare })
   };
 }
@@ -41,6 +42,20 @@ export function toTeamDto(team: TeamWithRoster): PersistedFantasyTeam {
     roster: team.rosterMemberships
       .map(({ player }) => ({ player: toPlayerDto(player) }))
       .sort((left, right) => left.player.name.localeCompare(right.player.name)),
+    sleeper:
+      team.sleeperLeagueId &&
+      team.sleeperRosterId !== null &&
+      team.sleeperUserId &&
+      team.sleeperUsername &&
+      team.sleeperSyncedAt
+        ? {
+            leagueId: team.sleeperLeagueId,
+            rosterId: team.sleeperRosterId,
+            userId: team.sleeperUserId,
+            username: team.sleeperUsername,
+            syncedAt: team.sleeperSyncedAt.toISOString()
+          }
+        : null,
     createdAt: team.createdAt.toISOString(),
     updatedAt: team.updatedAt.toISOString()
   };

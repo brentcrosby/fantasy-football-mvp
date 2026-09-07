@@ -13,12 +13,18 @@ model FantasyTeam {
   name              String             @db.VarChar(100)
   scoringFormat     ScoringFormat
   lineupSlots       LineupSlot[]
+  sleeperLeagueId   String?            @db.VarChar(30)
+  sleeperRosterId   Int?
+  sleeperUserId     String?            @db.VarChar(30)
+  sleeperUsername   String?            @db.VarChar(50)
+  sleeperSyncedAt   DateTime?
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
   user              User?              @relation(fields: [userId], references: [id], onDelete: Cascade)
   rosterMemberships RosterMembership[]
   weeklyReports     WeeklyReport[]
 
+  @@unique([userId, sleeperLeagueId])
   @@index([userId])
 }
 
@@ -52,6 +58,7 @@ model Player {
   byeWeek           Int
   injuryStatus      InjuryStatus       @default(HEALTHY)
   projectedPoints   Float
+  hasProjection     Boolean            @default(true)
   targetShare       Float?
   dataSource        PlayerDataSource   @default(SEED)
   externalId        String?            @db.VarChar(50)

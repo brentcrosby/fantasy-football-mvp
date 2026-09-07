@@ -443,6 +443,129 @@ h3 {
   padding: 16px 18px 0;
 }
 
+.sleeper-lookup,
+.sleeper-league-picker {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 142px 142px;
+  gap: 14px;
+  align-items: end;
+  padding: 16px 18px;
+}
+
+.sleeper-league-picker {
+  grid-template-columns: minmax(0, 1fr) 142px;
+  padding-top: 0;
+}
+
+.sleeper-linked,
+.sleeper-ready {
+  border-color: #315238;
+  color: var(--green);
+}
+
+.sleeper-blocked {
+  border-color: #66552e;
+  color: var(--amber);
+}
+
+.sleeper-message {
+  margin: 0 18px 18px;
+}
+
+.sleeper-preview {
+  display: grid;
+  gap: 14px;
+  padding: 16px 18px 18px;
+  border-top: 1px solid var(--line);
+  background: #0d1110;
+}
+
+.sleeper-preview-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.sleeper-preview-title > div {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.sleeper-preview-title span:first-child,
+.sleeper-lineup {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 750;
+  text-transform: uppercase;
+}
+
+.sleeper-preview-title strong {
+  overflow: hidden;
+  font-size: 1rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sleeper-preview-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+}
+
+.sleeper-preview-stats div {
+  display: grid;
+  min-height: 62px;
+  align-content: center;
+  gap: 2px;
+  padding: 9px 12px;
+  border-left: 1px solid var(--line);
+}
+
+.sleeper-preview-stats div:first-child {
+  border-left: 0;
+}
+
+.sleeper-preview-stats dt {
+  color: var(--dim);
+  font-size: 0.62rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.sleeper-preview-stats dd {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 0.9rem;
+  font-weight: 850;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sleeper-lineup {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.sleeper-warnings {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+  padding-left: 18px;
+  color: var(--amber);
+  font-size: 0.76rem;
+}
+
+.sleeper-import-button {
+  width: min(100%, 180px);
+  justify-self: end;
+}
+
 .persistence-status,
 .status-pill,
 .roster-count {
@@ -1237,9 +1360,36 @@ h3 {
 
   .control-grid,
   .team-controls-body,
-  .team-picker-row {
+  .team-picker-row,
+  .sleeper-lookup,
+  .sleeper-league-picker {
     grid-template-columns: 1fr;
     padding: 14px;
+  }
+
+  .sleeper-league-picker {
+    padding-top: 0;
+  }
+
+  .sleeper-preview {
+    padding: 14px;
+  }
+
+  .sleeper-preview-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .sleeper-preview-stats div:nth-child(3) {
+    border-top: 1px solid var(--line);
+    border-left: 0;
+  }
+
+  .sleeper-preview-stats div:nth-child(4) {
+    border-top: 1px solid var(--line);
+  }
+
+  .sleeper-import-button {
+    width: 100%;
   }
 
   .player-table-header {
