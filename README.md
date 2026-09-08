@@ -96,6 +96,18 @@ Force a local refresh when validating the importer:
 npm --workspace @fantasy-football/api run data:sync -- --force
 ```
 
+## Scheduled Player Data Refresh
+
+Each successful or failed refresh attempt is recorded in PostgreSQL. The player pool shows whether its last successful sync is current (within 12 hours), stale, or unavailable. A failed refresh never replaces the last validated catalog.
+
+The included GitHub Actions workflow requests a refresh every six hours and can also be run manually. Its refresh step is skipped until both repository secrets are configured, so deploying this code alone does not expose or refresh through the endpoint:
+
+1. Generate a long random value and set it as `DATA_SYNC_CRON_SECRET` in the Render web service environment.
+2. Add the same `DATA_SYNC_CRON_SECRET` to the GitHub repository's Actions secrets.
+3. Add `PLAYER_DATA_SYNC_URL` to GitHub Actions secrets with `https://fantasy-football-lineup-assistant.onrender.com/api/internal/player-data-sync` (substitute the actual deployed hostname if it changes).
+
+GitHub's scheduled workflows can be delayed, so this is a best-effort portfolio deployment schedule rather than a real-time production job. The protected endpoint accepts only the matching bearer secret and has a daily request limit.
+
 ## Sleeper League Import
 
 Authenticated users can enter a Sleeper username, select a current-season NFL league, preview the owned roster, and import it as a normal saved team. Connected teams retain the Sleeper league and roster identity so the same flow can refresh them later without creating duplicates.

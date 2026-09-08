@@ -52,12 +52,24 @@ export interface ProjectionModelSummary {
   sourceLabel: string;
 }
 
+export type PlayerDataFreshnessStatus = "FRESH" | "STALE" | "UNAVAILABLE";
+export type PlayerDataSyncStatus = "RUNNING" | "SUCCESS" | "SKIPPED" | "FAILED";
+
+export interface PlayerDataFreshness {
+  status: PlayerDataFreshnessStatus;
+  lastSuccessfulSyncAt: string | null;
+  lastAttemptAt: string | null;
+  lastAttemptStatus: PlayerDataSyncStatus | null;
+}
+
 export interface PlayerCatalogMetadata {
   source: "LIVE" | "SAMPLE";
   sourceLabel: string;
   season: number | null;
   week: number | null;
   updatedAt: string | null;
+  syncedAt: string | null;
+  freshness: PlayerDataFreshness;
   model?: ProjectionModelSummary;
 }
 

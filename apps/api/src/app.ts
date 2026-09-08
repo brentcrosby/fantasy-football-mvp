@@ -6,6 +6,7 @@ import express, { type ErrorRequestHandler } from "express";
 import { ApiError } from "./lib/apiError.js";
 import { authRouter } from "./routes/auth.js";
 import { healthRouter } from "./routes/health.js";
+import { playerDataSyncRouter } from "./routes/playerDataSync.js";
 import { playersRouter } from "./routes/players.js";
 import { recommendationsRouter } from "./routes/recommendations.js";
 import { sleeperRouter } from "./routes/sleeper.js";
@@ -45,6 +46,7 @@ app.use(express.json());
 
 app.use("/health", healthRouter);
 app.use("/api/auth", authRouter);
+app.use("/api/internal", playerDataSyncRouter);
 app.use("/api/players", playersRouter);
 app.use("/api/recommendations", recommendationsRouter);
 app.use("/api/sleeper", sleeperRouter);
