@@ -52,13 +52,15 @@ test("builds standings, matchup totals, positional edges, and unmatched counts",
     userRosterId: 1,
     settings: { scoringFormat: "HALF_PPR", lineupSlots: ["QB", "RB"] },
     playersByExternalId: new Map(players.map((candidate) => [candidate.id, candidate])),
-    projectionSource: "Test projections"
+    projectionSource: "Test projections",
+    storedAlerts: []
   });
 
   assert.deepEqual(overview.teams.map((team) => team.rosterId), [2, 1]);
   assert.equal(overview.teams.find((team) => team.isUserTeam)?.unmatchedPlayerCount, 1);
   assert.equal(overview.matchup?.projectedMargin, 2);
   assert.deepEqual(overview.tradeReport.considerations, []);
+  assert.deepEqual(overview.alertReport.alerts, []);
   assert.deepEqual(overview.matchup?.positionEdges, [
     { slot: "QB", userProjectedPoints: 22, opponentProjectedPoints: 18, advantage: "USER" },
     { slot: "RB", userProjectedPoints: 14, opponentProjectedPoints: 16, advantage: "OPPONENT" }

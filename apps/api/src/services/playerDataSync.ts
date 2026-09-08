@@ -13,6 +13,7 @@ const SYNC_ID = "weekly-player-data";
 const SOURCE_LABEL = "Sleeper + FantasyPros via DynastyProcess";
 const FRESHNESS_WINDOW_MS = 24 * 60 * 60 * 1000;
 const MINIMUM_LIVE_PLAYERS = 100;
+const ALERT_PROJECTION_DELTA = 2;
 
 const SLEEPER_STATE_URL = "https://api.sleeper.app/v1/state/nfl";
 const SLEEPER_PLAYERS_URL = "https://api.sleeper.app/v1/players/nfl?active=true";
@@ -155,15 +156,21 @@ export async function syncLivePlayerData(
     throw new Error(`Live player sync produced only ${batch.players.length} usable records.`);
   }
 
-  const seedRosterPlayers = await prismaClient.player.findMany({
-    where: { dataSource: "SEED" },
-    select: {
-      id: true,
-      name: true,
-      position: true,
-      rosterMemberships: { select: { fantasyTeamId: true } }
-    }
-  });
+  const [seedRosterPlayers, existingLivePlayers] = await Promise.all([
+    prismaClient.player.findMany({
+      where: { dataSource: "SEED" },
+      select: {
+        id: true,
+        name: true,
+        position: true,
+        rosterMemberships: { select: { fantasyTeamId: true } }
+      }
+    }),
+    prismaClient.player.findMany({
+      where: { id: { in: batch.players.map((player) => player.id) }, dataSource: "LIVE" },
+      select: { id: true, injuryStatus: true, projectedPoints: true, hasProjection: true }
+    })
+  ]);
   const livePlayerByIdentity = new Map(
     batch.players.map((player) => [playerIdentityKey(player.name, player.position), player])
   );
@@ -179,6 +186,11 @@ export async function syncLivePlayerData(
     }));
   });
   const livePlayerIds = batch.players.map((player) => player.id);
+  const existingLivePlayerById = new Map(existingLivePlayers.map((player) => [player.id, player]));
+  const canRecordAlerts = existingSync?.season === batch.season && existingSync.week === batch.week;
+  const alertCreates = canRecordAlerts
+    ? buildAlertCreates(batch.players, existingLivePlayerById)
+    : [];
   const unresolvedObservations = await prismaClient.projectionObservation.findMany({
     where: { actualPprPoints: null },
     select: { id: true, season: true, week: true, player: { select: { gsisId: true } } }
@@ -272,6 +284,8 @@ export async function syncLivePlayerData(
     );
   }
 
+  operations.push(...alertCreates.map((alert) => prismaClient.leagueAlert.create({ data: alert })));
+
   for (const observation of unresolvedObservations) {
     if (!observation.player.gsisId) continue;
 
@@ -321,6 +335,43 @@ export async function syncLivePlayerData(
     recordCount: batch.players.length,
     reconciledRosterPlayers: rosterReplacements.length
   };
+}
+
+export function buildAlertCreates(
+  nextPlayers: LivePlayerRecord[],
+  previousPlayers: Map<string, Pick<LivePlayerRecord, "injuryStatus" | "projectedPoints" | "hasProjection">>
+): Prisma.LeagueAlertCreateManyInput[] {
+  return nextPlayers.flatMap((player) => {
+    const previous = previousPlayers.get(player.id);
+    if (!previous) return [];
+
+    const alerts: Prisma.LeagueAlertCreateManyInput[] = [];
+    if (previous.injuryStatus !== player.injuryStatus) {
+      alerts.push({
+        playerId: player.id,
+        season: player.season,
+        week: player.projectionWeek,
+        type: "INJURY_STATUS",
+        previousInjuryStatus: previous.injuryStatus,
+        injuryStatus: player.injuryStatus
+      });
+    }
+
+    if (!previous.hasProjection || !player.hasProjection) return alerts;
+
+    const projectionDelta = player.projectedPoints - previous.projectedPoints;
+    if (Math.abs(projectionDelta) < ALERT_PROJECTION_DELTA) return alerts;
+
+    alerts.push({
+      playerId: player.id,
+      season: player.season,
+      week: player.projectionWeek,
+      type: projectionDelta > 0 ? "PROJECTION_RISE" : "PROJECTION_FALL",
+      previousProjectedPoints: previous.projectedPoints,
+      projectedPoints: player.projectedPoints
+    });
+    return alerts;
+  });
 }
 
 export function buildLivePlayerBatch({

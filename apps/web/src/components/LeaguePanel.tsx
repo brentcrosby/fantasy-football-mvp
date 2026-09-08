@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 import type {
   LeagueOverview,
+  LeagueAlertReport,
+  LeagueAlertScope,
+  LeagueAlertType,
   LeagueTeam,
   TradeConsiderationReport,
   TradeConsiderationRole
@@ -28,7 +31,7 @@ export function LeaguePanel({
   onOpenTeam
 }: LeaguePanelProps) {
   const [selectedRosterId, setSelectedRosterId] = useState<number | null>(null);
-  const [leagueView, setLeagueView] = useState<"OVERVIEW" | "TRADES">("OVERVIEW");
+  const [leagueView, setLeagueView] = useState<"OVERVIEW" | "TRADES" | "ALERTS">("OVERVIEW");
 
   useEffect(() => {
     if (!overview) {
@@ -47,6 +50,13 @@ export function LeaguePanel({
   const selectedTeam = overview?.teams.find((team) => team.rosterId === selectedRosterId) ?? null;
   const userTeam = overview?.teams.find((team) => team.isUserTeam) ?? null;
   const opponentTeam = overview?.teams.find((team) => team.rosterId === overview.matchup?.opponentRosterId) ?? null;
+  const alertReport = overview
+    ? overview.alertReport ?? {
+        week: overview.week,
+        alerts: [],
+        summary: `No material rostered-player changes have been captured for Week ${overview.week} yet.`
+      }
+    : null;
   const canRefresh = hasSavedTeam && connectedToSleeper && !teamDirty && !loading;
 
   return (
@@ -94,6 +104,16 @@ export function LeaguePanel({
               Trade Finder
               <span>{overview.tradeReport.considerations.length}</span>
             </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={leagueView === "ALERTS"}
+              className={leagueView === "ALERTS" ? "is-active" : undefined}
+              onClick={() => setLeagueView("ALERTS")}
+            >
+              League Alerts
+              <span>{alertReport?.alerts.length ?? 0}</span>
+            </button>
           </div>
 
           {leagueView === "OVERVIEW" ? (
@@ -132,11 +152,61 @@ export function LeaguePanel({
                 <TeamRoster team={selectedTeam} />
               </div>
             </>
-          ) : (
+          ) : leagueView === "TRADES" ? (
             <TradeFinder report={overview.tradeReport} />
+          ) : (
+            <LeagueAlerts report={alertReport!} />
           )}
         </>
       )}
+    </section>
+  );
+}
+
+function LeagueAlerts({ report }: { report: LeagueAlertReport }) {
+  return (
+    <section className="league-alerts" aria-labelledby="league-alerts-heading">
+      <div className="trade-finder-summary">
+        <div>
+          <p className="eyebrow">Roster Watch</p>
+          <h3 id="league-alerts-heading">League Alerts</h3>
+          <p>{report.summary}</p>
+        </div>
+        <span className="status-pill">Week {report.week}</span>
+      </div>
+
+      {report.alerts.length > 0 ? (
+        <div className="league-alert-list">
+          {report.alerts.map((alert) => (
+            <article className={`league-alert type-${alert.type.toLowerCase()}`} key={alert.id}>
+              <div className="league-alert-header">
+                <span className={`alert-scope scope-${alert.scope.toLowerCase()}`}>{alertScopeLabel(alert.scope)}</span>
+                <div>
+                  <strong>{alert.player.name}</strong>
+                  <small>{alert.player.position} / {alert.player.nflTeam} / {alert.team.teamName}</small>
+                </div>
+                <time dateTime={alert.createdAt}>{alertTimeLabel(alert.createdAt)}</time>
+              </div>
+              <p>{alert.summary}</p>
+              <div className="league-alert-meta">
+                <span>{alertTypeLabel(alert.type)}</span>
+                {alert.type === "INJURY_STATUS" ? (
+                  <b>{formatInjuryStatus(alert.injuryStatus)}</b>
+                ) : (
+                  <b>{(alert.previousProjectedPoints ?? 0).toFixed(1)} to {(alert.projectedPoints ?? 0).toFixed(1)} proj</b>
+                )}
+              </div>
+            </article>
+          ))}
+        </div>
+      ) : (
+        <div className="panel trade-empty">
+          <strong>No league alerts yet</strong>
+          <p>Alerts appear after a later Week {report.week} player-data sync detects a meaningful status or projection change.</p>
+        </div>
+      )}
+
+      <p className="trade-disclosure">Alerts track provider status and projection changes for your roster and projected starters around the league. They are not article-based news coverage.</p>
     </section>
   );
 }
@@ -227,6 +297,26 @@ function tradeRoleLabel(role: TradeConsiderationRole): string {
   if (role === "STARTER_UPGRADE") return "Starter Upgrade";
   if (role === "MODEL_BUY_LOW") return "Model Buy-Low";
   return "Depth Target";
+}
+
+function alertScopeLabel(scope: LeagueAlertScope): string {
+  if (scope === "YOUR_ROSTER") return "Your Roster";
+  if (scope === "MATCHUP_OPPONENT") return "Matchup Opponent";
+  return "League Starter";
+}
+
+function alertTypeLabel(type: LeagueAlertType): string {
+  if (type === "INJURY_STATUS") return "Status Update";
+  return type === "PROJECTION_FALL" ? "Projection Down" : "Projection Up";
+}
+
+function formatInjuryStatus(status: string | null): string {
+  return (status ?? "HEALTHY").replace("_", " ");
+}
+
+function alertTimeLabel(value: string): string {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "Recent" : date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
 function MatchupCard({

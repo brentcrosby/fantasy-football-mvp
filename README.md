@@ -126,6 +126,8 @@ The Trade Finder in the League tab looks for players on another team's projected
 
 Trade results are starting points for a conversation, not fair-value judgments or exact package recommendations. Provider projections drive the roster-fit comparison. In PPR leagues, the experimental model can add a secondary buy-low signal, but it does not override the provider projection or claim to predict rest-of-season value.
 
+League Alerts records meaningful same-week player-data changes for the connected league. It highlights injury-status changes and provider-projection moves of at least two points for the user's roster, the current matchup opponent's projected starters, and other projected league starters. The feed deliberately excludes other managers' bench changes and does not represent article-based news coverage.
+
 ## Experimental Projection Model
 
 The repository includes a reproducible ridge-regression training pipeline in `ml/`. It downloads nflverse weekly player stats, trains on the 2021-2024 regular seasons, and evaluates once on the held-out 2025 season. Features use only information available before the predicted game: recent PPR output, attempts, carries, targets, receptions, touchdowns, trend, sample size, and position.

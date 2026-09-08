@@ -72,6 +72,7 @@ model Player {
   dataUpdatedAt          DateTime?
   rosterMemberships      RosterMembership[]
   projectionObservations ProjectionObservation[]
+  leagueAlerts           LeagueAlert[]
 
   @@unique([dataSource, externalId])
   @@index([dataSource, season, projectionWeek])
@@ -92,6 +93,23 @@ model ProjectionObservation {
   @@unique([playerId, season, week])
   @@index([season, week])
   @@index([actualPprPoints])
+}
+
+model LeagueAlert {
+  id                       String          @id @default(cuid())
+  playerId                 String
+  season                   Int
+  week                     Int
+  type                     LeagueAlertType
+  previousInjuryStatus     InjuryStatus?
+  injuryStatus             InjuryStatus?
+  previousProjectedPoints  Float?
+  projectedPoints          Float?
+  createdAt                DateTime        @default(now())
+  player                   Player          @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@index([season, week, createdAt])
+  @@index([playerId, createdAt])
 }
 
 model PlayerDataSync {
@@ -168,4 +186,10 @@ enum InjuryStatus {
 enum PlayerDataSource {
   SEED
   LIVE
+}
+
+enum LeagueAlertType {
+  INJURY_STATUS
+  PROJECTION_RISE
+  PROJECTION_FALL
 }

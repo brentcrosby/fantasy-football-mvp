@@ -160,13 +160,28 @@ teamsRouter.get<{ teamId: string }>("/:teamId/league", leagueRateLimit, async (r
     throw new ApiError(503, "Current player projections are unavailable. Sync player data before loading the league.");
   }
 
-  const [context, currentPlayers] = await Promise.all([
+  const [context, currentPlayers, storedAlerts] = await Promise.all([
     loadSleeperLeagueContext(team.sleeperLeagueId, sync.week),
     prisma.player.findMany({
       where: {
         dataSource: "LIVE",
         season: sync.season,
         projectionWeek: sync.week
+      }
+    }),
+    prisma.leagueAlert.findMany({
+      where: { season: sync.season, week: sync.week },
+      orderBy: { createdAt: "desc" },
+      take: 100,
+      select: {
+        id: true,
+        playerId: true,
+        type: true,
+        previousInjuryStatus: true,
+        injuryStatus: true,
+        previousProjectedPoints: true,
+        projectedPoints: true,
+        createdAt: true
       }
     })
   ]);
@@ -184,7 +199,8 @@ teamsRouter.get<{ teamId: string }>("/:teamId/league", leagueRateLimit, async (r
       ...(scoringRules ? { scoringRules } : {})
     },
     playersByExternalId,
-    projectionSource: sync.source
+    projectionSource: sync.source,
+    storedAlerts
   });
 
   response.json({ overview });

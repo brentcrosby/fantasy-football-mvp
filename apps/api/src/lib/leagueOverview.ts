@@ -9,6 +9,7 @@ import {
 } from "@fantasy-football/shared";
 
 import type { SleeperLeagueContext } from "../services/sleeperLeagueImport.js";
+import { buildLeagueAlerts, type StoredLeagueAlert } from "./leagueAlerts.js";
 import { buildTradeConsiderations } from "./tradeConsideration.js";
 
 interface BuildLeagueOverviewInput {
@@ -18,6 +19,7 @@ interface BuildLeagueOverviewInput {
   settings: LeagueSettings;
   playersByExternalId: Map<string, Player>;
   projectionSource: string;
+  storedAlerts: StoredLeagueAlert[];
 }
 
 export function buildLeagueOverview(input: BuildLeagueOverviewInput): LeagueOverview {
@@ -55,15 +57,24 @@ export function buildLeagueOverview(input: BuildLeagueOverviewInput): LeagueOver
     settings: input.settings,
     teams
   });
+  const matchup = buildMatchup(input.context, teams, input.userRosterId);
+  const alertReport = buildLeagueAlerts({
+    week: input.week,
+    userRosterId: input.userRosterId,
+    opponentRosterId: matchup?.opponentRosterId ?? null,
+    teams,
+    storedAlerts: input.storedAlerts
+  });
 
   return {
     league: input.context.league,
     week: input.week,
     userRosterId: input.userRosterId,
     teams,
-    matchup: buildMatchup(input.context, teams, input.userRosterId),
+    matchup,
     projectionSource: input.projectionSource,
-    tradeReport
+    tradeReport,
+    alertReport
   };
 }
 
