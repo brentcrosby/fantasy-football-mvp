@@ -8,6 +8,7 @@ export interface SeedPlayer {
   byeWeek: number;
   injuryStatus: InjuryStatus;
   projectedPoints: number;
+  projectionSource: string;
   targetShare: number | null;
   dataSource: PlayerDataSource;
 }
@@ -21,6 +22,7 @@ export const seedPlayers: SeedPlayer[] = [
     byeWeek: 7,
     injuryStatus: "HEALTHY",
     projectedPoints: 22.8,
+    projectionSource: "Sample projection data",
     targetShare: null,
     dataSource: "SEED"
   },
@@ -32,6 +34,7 @@ export const seedPlayers: SeedPlayer[] = [
     byeWeek: 8,
     injuryStatus: "HEALTHY",
     projectedPoints: 17.2,
+    projectionSource: "Sample projection data",
     targetShare: 0.16,
     dataSource: "SEED"
   },
@@ -43,6 +46,7 @@ export const seedPlayers: SeedPlayer[] = [
     byeWeek: 10,
     injuryStatus: "QUESTIONABLE",
     projectedPoints: 14.5,
+    projectionSource: "Sample projection data",
     targetShare: 0.09,
     dataSource: "SEED"
   },
@@ -54,6 +58,7 @@ export const seedPlayers: SeedPlayer[] = [
     byeWeek: 12,
     injuryStatus: "HEALTHY",
     projectedPoints: 13.6,
+    projectionSource: "Sample projection data",
     targetShare: 0.21,
     dataSource: "SEED"
   },
@@ -65,6 +70,7 @@ export const seedPlayers: SeedPlayer[] = [
     byeWeek: 11,
     injuryStatus: "HEALTHY",
     projectedPoints: 12.9,
+    projectionSource: "Sample projection data",
     targetShare: 0.24,
     dataSource: "SEED"
   },
@@ -76,6 +82,7 @@ export const seedPlayers: SeedPlayer[] = [
     byeWeek: 8,
     injuryStatus: "HEALTHY",
     projectedPoints: 11.8,
+    projectionSource: "Sample projection data",
     targetShare: 0.2,
     dataSource: "SEED"
   },
@@ -87,6 +94,7 @@ export const seedPlayers: SeedPlayer[] = [
     byeWeek: 14,
     injuryStatus: "HEALTHY",
     projectedPoints: 10.2,
+    projectionSource: "Sample projection data",
     targetShare: 0.05,
     dataSource: "SEED"
   },
@@ -98,6 +106,7 @@ export const seedPlayers: SeedPlayer[] = [
     byeWeek: 10,
     injuryStatus: "HEALTHY",
     projectedPoints: 8.9,
+    projectionSource: "Sample projection data",
     targetShare: null,
     dataSource: "SEED"
   },
@@ -109,6 +118,7 @@ export const seedPlayers: SeedPlayer[] = [
     byeWeek: 9,
     injuryStatus: "HEALTHY",
     projectedPoints: 8.4,
+    projectionSource: "Sample projection data",
     targetShare: null,
     dataSource: "SEED"
   },
@@ -120,6 +130,7 @@ export const seedPlayers: SeedPlayer[] = [
     byeWeek: 9,
     injuryStatus: "OUT",
     projectedPoints: 12.4,
+    projectionSource: "Sample projection data",
     targetShare: 0.19,
     dataSource: "SEED"
   },
@@ -131,6 +142,7 @@ export const seedPlayers: SeedPlayer[] = [
     byeWeek: 10,
     injuryStatus: "HEALTHY",
     projectedPoints: 9.7,
+    projectionSource: "Sample projection data",
     targetShare: 0.17,
     dataSource: "SEED"
   }

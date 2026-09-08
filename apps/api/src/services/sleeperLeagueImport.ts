@@ -1,4 +1,11 @@
-import type { LineupSlot, ScoringFormat, SleeperLeagueLookup, SleeperLeagueSummary, SleeperUserSummary } from "@fantasy-football/shared";
+import type {
+  LineupSlot,
+  ScoringFormat,
+  ScoringRules,
+  SleeperLeagueLookup,
+  SleeperLeagueSummary,
+  SleeperUserSummary
+} from "@fantasy-football/shared";
 import { z } from "zod";
 
 import { ApiError } from "../lib/apiError.js";
@@ -68,7 +75,8 @@ export interface SleeperImportCandidate {
   user: SleeperUserSummary;
   league: SleeperLeagueSummary;
   teamName: string;
-  scoringFormat: ScoringFormat | null;
+  scoringFormat: ScoringFormat;
+  scoringRules: ScoringRules;
   lineupSlots: LineupSlot[];
   unsupportedLineupSlots: string[];
   sleeperPlayerIds: string[];
@@ -129,16 +137,13 @@ export async function loadSleeperImportCandidate(
     const teamName = leagueUser?.metadata?.team_name?.trim() || league.name.trim() || "Sleeper Team";
     const { lineupSlots, unsupportedLineupSlots } = translateLineupSlots(league.roster_positions);
     const scoringFormat = translateScoringFormat(league.scoring_settings.rec);
+    const scoringRules = { ...league.scoring_settings };
     const warnings = [
-      "Only reception scoring is translated; custom bonuses and other scoring rules are not modeled."
+      "League scoring rules will be saved. The current projection feed supplies totals without stat components, so lineup points remain provider totals for now."
     ];
 
     if (unsupportedLineupSlots.length > 0) {
       warnings.push(`Unsupported starting slots: ${unsupportedLineupSlots.join(", ")}.`);
-    }
-
-    if (!scoringFormat) {
-      warnings.push(`Reception scoring of ${String(league.scoring_settings.rec)} points is not supported.`);
     }
 
     return {
@@ -146,6 +151,7 @@ export async function loadSleeperImportCandidate(
       league: toLeagueSummary(league),
       teamName: teamName.slice(0, 100),
       scoringFormat,
+      scoringRules,
       lineupSlots,
       unsupportedLineupSlots,
       sleeperPlayerIds: [...new Set(roster.players ?? [])],
@@ -177,11 +183,11 @@ export function translateLineupSlots(rosterPositions: string[]): {
   return { lineupSlots, unsupportedLineupSlots: [...unsupportedLineupSlots] };
 }
 
-export function translateScoringFormat(receptionPoints: number | undefined): ScoringFormat | null {
+export function translateScoringFormat(receptionPoints: number | undefined): ScoringFormat {
   if (receptionPoints === 0) return "STANDARD";
   if (receptionPoints === 0.5) return "HALF_PPR";
   if (receptionPoints === 1) return "PPR";
-  return null;
+  return "CUSTOM";
 }
 
 function parseSleeperUser(payload: unknown, requestedUsername: string): SleeperUserSummary {

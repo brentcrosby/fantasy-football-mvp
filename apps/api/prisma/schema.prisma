@@ -12,6 +12,7 @@ model FantasyTeam {
   userId            String?
   name              String             @db.VarChar(100)
   scoringFormat     ScoringFormat
+  scoringRules      Json?
   lineupSlots       LineupSlot[]
   sleeperLeagueId   String?            @db.VarChar(30)
   sleeperRosterId   Int?
@@ -59,6 +60,8 @@ model Player {
   injuryStatus      InjuryStatus       @default(HEALTHY)
   projectedPoints   Float
   hasProjection     Boolean            @default(true)
+  projectionStats   Json?
+  projectionSource  String?            @db.VarChar(150)
   targetShare       Float?
   dataSource        PlayerDataSource   @default(SEED)
   externalId        String?            @db.VarChar(50)
@@ -97,6 +100,7 @@ model WeeklyReport {
   teamName       String        @db.VarChar(100)
   week           Int
   scoringFormat  ScoringFormat
+  scoringRules   Json?
   lineupSlots    LineupSlot[]
   rosterSnapshot Json
   reportSnapshot Json
@@ -119,6 +123,7 @@ enum ScoringFormat {
   STANDARD
   HALF_PPR
   PPR
+  CUSTOM
 }
 
 enum LineupSlot {

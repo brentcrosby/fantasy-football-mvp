@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { rateLimit } from "express-rate-limit";
 import type { SleeperImportPreview } from "@fantasy-football/shared";
+import type { Prisma } from "@prisma/client";
 
 import { ApiError } from "../lib/apiError.js";
 import { teamWithRoster, toPlayerDto, toTeamDto } from "../lib/mappers.js";
@@ -83,6 +84,7 @@ sleeperRouter.post("/import", async (request, response) => {
         data: {
           name: candidate.teamName,
           scoringFormat: settings.scoringFormat,
+          scoringRules: settings.scoringRules as Prisma.InputJsonValue,
           lineupSlots: settings.lineupSlots,
           sleeperRosterId: candidate.rosterId,
           sleeperUserId: candidate.user.id,
@@ -106,6 +108,7 @@ sleeperRouter.post("/import", async (request, response) => {
         userId: user.id,
         name: candidate.teamName,
         scoringFormat: settings.scoringFormat,
+        scoringRules: settings.scoringRules as Prisma.InputJsonValue,
         lineupSlots: settings.lineupSlots,
         sleeperLeagueId: candidate.league.id,
         sleeperRosterId: candidate.rosterId,
@@ -175,8 +178,12 @@ async function buildImportPreview(candidate: SleeperImportCandidate, userId: str
     league: candidate.league,
     teamName: candidate.teamName,
     settings:
-      candidate.scoringFormat && candidate.lineupSlots.length > 0
-        ? { scoringFormat: candidate.scoringFormat, lineupSlots: candidate.lineupSlots }
+      candidate.lineupSlots.length > 0
+        ? {
+            scoringFormat: candidate.scoringFormat,
+            lineupSlots: candidate.lineupSlots,
+            scoringRules: candidate.scoringRules
+          }
         : null,
     rosterPlayers,
     unmatchedPlayerIds,
@@ -184,7 +191,6 @@ async function buildImportPreview(candidate: SleeperImportCandidate, userId: str
     warnings,
     canImport:
       Boolean(sync) &&
-      candidate.scoringFormat !== null &&
       candidate.lineupSlots.length > 0 &&
       candidate.lineupSlots.length <= 30 &&
       candidate.unsupportedLineupSlots.length === 0 &&

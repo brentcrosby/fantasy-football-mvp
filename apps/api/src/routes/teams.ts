@@ -1,5 +1,5 @@
 import { Router, type Response } from "express";
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { buildLineupRecommendation, type RecommendationRequest } from "@fantasy-football/shared";
 
 import { ApiError } from "../lib/apiError.js";
@@ -40,6 +40,9 @@ teamsRouter.post("/", async (request, response) => {
         userId: user.id,
         name: parsed.data.name,
         scoringFormat: parsed.data.settings.scoringFormat,
+        ...(parsed.data.settings.scoringRules
+          ? { scoringRules: parsed.data.settings.scoringRules as Prisma.InputJsonValue }
+          : {}),
         lineupSlots: parsed.data.settings.lineupSlots,
         rosterMemberships:
           parsed.data.rosterPlayerIds.length === 0
@@ -106,11 +109,13 @@ teamsRouter.post("/:teamId/reports", async (request, response) => {
   const roster = team.rosterMemberships
     .map(({ player }) => ({ player: toPlayerDto(player) }))
     .sort((left, right) => left.player.name.localeCompare(right.player.name));
+  const scoringRules = readScoringRules(team.scoringRules);
   const recommendationRequest: RecommendationRequest = {
     week: parsed.data.week,
     settings: {
       scoringFormat: team.scoringFormat,
-      lineupSlots: team.lineupSlots
+      lineupSlots: team.lineupSlots,
+      ...(scoringRules ? { scoringRules } : {})
     },
     roster
   };
@@ -122,6 +127,7 @@ teamsRouter.post("/:teamId/reports", async (request, response) => {
       teamName: team.name,
       week: parsed.data.week,
       scoringFormat: team.scoringFormat,
+      scoringRules: team.scoringRules === null ? undefined : (team.scoringRules as Prisma.InputJsonValue),
       lineupSlots: team.lineupSlots,
       rosterSnapshot: roster as unknown as Prisma.InputJsonValue,
       reportSnapshot: report as unknown as Prisma.InputJsonValue
@@ -178,6 +184,9 @@ teamsRouter.put("/:teamId", async (request, response) => {
       data: {
         name: parsed.data.name,
         scoringFormat: parsed.data.settings.scoringFormat,
+        scoringRules: parsed.data.settings.scoringRules
+          ? (parsed.data.settings.scoringRules as Prisma.InputJsonValue)
+          : Prisma.DbNull,
         lineupSlots: parsed.data.settings.lineupSlots
       }
     });
@@ -229,4 +238,14 @@ async function assertOwnedTeam(teamId: string, userId: string): Promise<void> {
   if (!team) {
     throw new ApiError(404, "Team not found.");
   }
+}
+
+function readScoringRules(value: Prisma.JsonValue | null): Record<string, number> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+
+  const entries = Object.entries(value).filter(
+    (entry): entry is [string, number] => typeof entry[1] === "number" && Number.isFinite(entry[1])
+  );
+
+  return entries.length > 0 ? Object.fromEntries(entries) : null;
 }

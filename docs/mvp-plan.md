@@ -22,6 +22,7 @@ Build a concise full-stack project that proves application development fundament
 6. [x] Deploy frontend, API, and database.
 7. [x] Sync current weekly player metadata, injuries, bye weeks, and projections.
 8. [x] Preview, import, and refresh current-season Sleeper rosters.
+9. [x] Persist complete league scoring rules, add component-stat scoring, and label provider-total fallbacks.
 
 The live application uses same-origin production serving, startup validation, database health checks, authentication throttling, GitHub CI, a Render Blueprint, and a validated live-data sync with a stable fallback catalog.
 
@@ -31,12 +32,15 @@ The live application uses same-origin production serving, startup validation, da
 - Fill required lineup slots before flex.
 - Use one-based fantasy lineup positions but store each assignment explicitly.
 - FLEX can use RB, WR, or TE.
-- Rank players by projected points adjusted for scoring format and availability.
+- Score projected stat components with the team's rules when they are available.
+- Otherwise use the source projection total unchanged and identify that fallback in the report.
+- Apply availability and injury risk only to lineup selection, not the displayed projection total.
 - Surface injury and bye risks even when they do not change the final lineup.
 
 ## Later Features
 
 - Automated projection refresh independent of application restarts.
+- Authorized weekly projection feed with passing, rushing, receiving, kicking, and defense stat components.
 - AI-generated explanation text from structured recommendation results.
 - Prediction model trained against historical fantasy points.
 - Trade and waiver analysis.

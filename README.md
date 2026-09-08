@@ -8,7 +8,7 @@ Fantasy Football Lineup Assistant is a full-stack MVP for managing a fantasy ros
 
 - Create and review a fantasy team roster.
 - Register, sign in, and manage teams owned by the current account.
-- Store player position, NFL team, bye week, injury status, and weekly projection data.
+- Store player position, NFL team, bye week, injury status, weekly projections, and projection provenance.
 - Generate a weekly lineup report with starters, bench players, risk notes, and position needs.
 - Save immutable weekly report snapshots and reopen them from team history.
 - Keep the first recommendation engine rule-based and explainable before adding any predictive model.
@@ -97,7 +97,13 @@ npm --workspace @fantasy-football/api run data:sync -- --force
 
 Authenticated users can enter a Sleeper username, select a current-season NFL league, preview the owned roster, and import it as a normal saved team. Connected teams retain the Sleeper league and roster identity so the same flow can refresh them later without creating duplicates.
 
-The import translates Standard, Half PPR, and PPR reception scoring plus QB, RB, WR, TE, FLEX, K, and DST lineup slots. It blocks unsupported starting positions such as superflex and IDP instead of silently changing the league structure. Sleeper's API is read-only, so the application never requests a Sleeper password or modifies the source league.
+The import recognizes Standard, Half PPR, PPR, and custom scoring while preserving Sleeper's complete numeric scoring map. It translates QB, RB, WR, TE, FLEX, K, and DST lineup slots and blocks unsupported starting positions such as superflex and IDP instead of silently changing the league structure. Sleeper's API is read-only, so the application never requests a Sleeper password or modifies the source league.
+
+## Scoring-Aware Projections
+
+The recommendation engine can score projected stat components with the saved league rules, including reception values, passing touchdown values, interceptions, yardage, two-point conversions, fumbles, kicking ranges, and provider-supplied bonus counters. Reports calculated this way include a per-player scoring breakdown.
+
+The current DynastyProcess weekly feed exposes only a finished point total, not passing, rushing, receiving, kicking, or defense projection components. Those totals are therefore kept unchanged and labeled as provider projections in the report. The application does not estimate or reverse-engineer stat lines from a total. Connecting an authorized component-stat feed will activate league-scored projections without changing the recommendation contract or stored Sleeper settings.
 
 Existing teams created before the authentication migration are preserved as unowned legacy records. Authenticated team routes expose only teams owned by the current account.
 
@@ -130,7 +136,7 @@ The cleanup guard refuses to run against the development `public` schema. Tests 
 
 ## Current Status
 
-The application is deployed on Render with secure cookie sessions, user-owned PostgreSQL teams, current weekly NFL player data, Sleeper roster imports, a deterministic lineup engine, immutable weekly report history, and automated CI. Waiver analysis, scoring-aware projections, and a trained prediction model remain later features.
+The application is deployed on Render with secure cookie sessions, user-owned PostgreSQL teams, current weekly NFL player data, Sleeper roster imports with full scoring-rule persistence, a deterministic scoring and lineup engine, immutable weekly report history, and automated CI. A licensed component-stat projection feed, waiver analysis, and a trained prediction model remain later features.
 
 Production must use HTTPS so secure session cookies can be sent. The included deployment serves the frontend and API from one origin; configure `WEB_ORIGIN` only if they are hosted separately.
 
