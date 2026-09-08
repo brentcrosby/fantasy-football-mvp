@@ -1945,7 +1945,7 @@ h3 {
 
 .league-view-toggle {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   border: 1px solid var(--line);
   background: #0d1110;
 }
@@ -1990,6 +1990,116 @@ h3 {
 .trade-finder {
   display: grid;
   gap: 18px;
+}
+
+.league-alerts {
+  display: grid;
+  gap: 18px;
+}
+
+.league-alert-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.league-alert {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--line-strong);
+  background: var(--panel);
+}
+
+.league-alert.type-injury_status,
+.league-alert.type-projection_fall {
+  border-left-color: var(--amber);
+}
+
+.league-alert.type-projection_rise {
+  border-left-color: var(--green);
+}
+
+.league-alert-header {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.league-alert-header > div {
+  display: grid;
+  min-width: 0;
+}
+
+.league-alert-header strong,
+.league-alert-header small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.league-alert-header strong {
+  font-size: 0.82rem;
+}
+
+.league-alert-header small,
+.league-alert-header time {
+  color: var(--dim);
+  font-size: 0.62rem;
+}
+
+.league-alert-header time {
+  white-space: nowrap;
+}
+
+.alert-scope {
+  display: grid;
+  min-height: 26px;
+  place-items: center;
+  padding: 4px 6px;
+  border: 1px solid var(--line-strong);
+  color: var(--muted);
+  font-size: 0.56rem;
+  font-weight: 900;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.alert-scope.scope-your_roster {
+  border-color: var(--green);
+  color: var(--green);
+}
+
+.alert-scope.scope-matchup_opponent {
+  border-color: var(--amber);
+  color: var(--amber);
+}
+
+.league-alert > p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.74rem;
+  line-height: 1.45;
+}
+
+.league-alert-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  color: var(--dim);
+  font-size: 0.62rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.league-alert-meta b {
+  color: var(--text);
+  font-size: 0.66rem;
 }
 
 .trade-finder-summary {
@@ -2575,6 +2685,10 @@ h3 {
   .trade-list {
     grid-template-columns: 1fr;
   }
+
+  .league-alert-list {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 640px) {
@@ -2627,6 +2741,14 @@ h3 {
 
   .trade-card-heading {
     grid-template-columns: 92px minmax(0, 1fr);
+  }
+
+  .league-alert-header {
+    grid-template-columns: 92px minmax(0, 1fr);
+  }
+
+  .league-alert-header time {
+    grid-column: 2;
   }
 
   .trade-card-heading > b {

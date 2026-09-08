@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { buildLivePlayerBatch, normalizeInjuryStatus } from "./playerDataSync.js";
+import { buildAlertCreates, buildLivePlayerBatch, normalizeInjuryStatus } from "./playerDataSync.js";
 
 const rankingHeader = [
   "fantasypros_id",
@@ -108,4 +108,30 @@ test("normalizes provider injury labels conservatively", () => {
   assert.equal(normalizeInjuryStatus("Questionable"), "QUESTIONABLE");
   assert.equal(normalizeInjuryStatus("Suspended"), "SUSPENDED");
   assert.equal(normalizeInjuryStatus("Probable"), "HEALTHY");
+});
+
+test("records material same-week status and provider projection changes", () => {
+  const batch = buildLivePlayerBatch({
+    season: 2026,
+    week: 1,
+    sleeperPlayers: {
+      "4984": { full_name: "Josh Allen", team: "BUF", fantasy_positions: ["QB"], injury_status: "Out" }
+    },
+    rankingsCsv: [rankingHeader, "17298,Josh Allen,QB,BUF,7,16.5,2026-09-08"].join("\n"),
+    crosswalkCsv: ["fantasypros_id,sleeper_id", "17298,4984"].join("\n")
+  });
+  const player = batch.players.find((candidate) => candidate.id === "sleeper:4984");
+  assert(player);
+
+  const alerts = buildAlertCreates(batch.players, new Map([[player.id, {
+    injuryStatus: "HEALTHY",
+    projectedPoints: 20,
+    hasProjection: true
+  }]]));
+
+  assert.deepEqual(alerts.map((alert) => alert.type), ["INJURY_STATUS", "PROJECTION_FALL"]);
+  assert.equal(alerts[0]?.previousInjuryStatus, "HEALTHY");
+  assert.equal(alerts[0]?.injuryStatus, "OUT");
+  assert.equal(alerts[1]?.previousProjectedPoints, 20);
+  assert.equal(alerts[1]?.projectedPoints, 16.5);
 });

@@ -258,6 +258,30 @@ export interface LeagueOverview {
   matchup: LeagueMatchup | null;
   projectionSource: string;
   tradeReport: TradeConsiderationReport;
+  alertReport: LeagueAlertReport;
+}
+
+export type LeagueAlertType = "INJURY_STATUS" | "PROJECTION_RISE" | "PROJECTION_FALL";
+export type LeagueAlertScope = "YOUR_ROSTER" | "MATCHUP_OPPONENT" | "LEAGUE_STARTER" | "LEAGUE_BENCH";
+
+export interface LeagueAlert {
+  id: string;
+  type: LeagueAlertType;
+  scope: LeagueAlertScope;
+  player: Player;
+  team: TradePartnerSummary;
+  previousInjuryStatus: InjuryStatus | null;
+  injuryStatus: InjuryStatus | null;
+  previousProjectedPoints: number | null;
+  projectedPoints: number | null;
+  createdAt: string;
+  summary: string;
+}
+
+export interface LeagueAlertReport {
+  week: number;
+  alerts: LeagueAlert[];
+  summary: string;
 }
 
 export type TradeConsiderationRole = "STARTER_UPGRADE" | "DEPTH_TARGET" | "MODEL_BUY_LOW";
