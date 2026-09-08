@@ -1,13 +1,36 @@
 import { z } from "zod";
 
-const scoringFormatSchema = z.enum(["STANDARD", "HALF_PPR", "PPR"]);
+const scoringFormatSchema = z.enum(["STANDARD", "HALF_PPR", "PPR", "CUSTOM"]);
 const lineupSlotSchema = z.enum(["QB", "RB", "WR", "TE", "K", "DST", "FLEX"]);
+const scoringRulesSchema = z
+  .record(
+    z.string().trim().regex(/^[a-z0-9_]+$/).max(60),
+    z.number().finite().min(-1000).max(1000)
+  )
+  .superRefine((rules, context) => {
+    if (Object.keys(rules).length > 250) {
+      context.addIssue({ code: "custom", message: "Scoring rules cannot contain more than 250 entries." });
+    }
+  });
 const settingsSchema = z
   .object({
     scoringFormat: scoringFormatSchema,
-    lineupSlots: z.array(lineupSlotSchema).min(1).max(30)
+    lineupSlots: z.array(lineupSlotSchema).min(1).max(30),
+    scoringRules: scoringRulesSchema.optional()
   })
-  .strict();
+  .strict()
+  .superRefine((settings, context) => {
+    if (
+      settings.scoringFormat === "CUSTOM" &&
+      (!settings.scoringRules || Object.keys(settings.scoringRules).length === 0)
+    ) {
+      context.addIssue({
+        code: "custom",
+        message: "Custom scoring requires scoring rules.",
+        path: ["scoringRules"]
+      });
+    }
+  });
 const playerIdSchema = z.string().trim().min(1).max(100);
 
 function uniquePlayerIds(minimum: number) {

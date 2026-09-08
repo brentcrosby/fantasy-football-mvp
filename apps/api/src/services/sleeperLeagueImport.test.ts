@@ -18,7 +18,7 @@ const league = {
   status: "in_season",
   sport: "nfl",
   roster_positions: ["QB", "RB", "RB", "WR", "WR", "TE", "FLEX", "K", "DEF", "BN", "IR"],
-  scoring_settings: { rec: 0.5 }
+  scoring_settings: { rec: 0.5, pass_td: 6, bonus_pass_yd_300: 3 }
 };
 
 test("finds and sorts the current Sleeper user's leagues", async () => {
@@ -57,12 +57,13 @@ test("builds an import candidate from the owned roster and league settings", asy
   assert.equal(candidate.teamName, "Fourth and Long");
   assert.equal(candidate.rosterId, 7);
   assert.equal(candidate.scoringFormat, "HALF_PPR");
+  assert.deepEqual(candidate.scoringRules, { rec: 0.5, pass_td: 6, bonus_pass_yd_300: 3 });
   assert.deepEqual(candidate.lineupSlots, ["QB", "RB", "RB", "WR", "WR", "TE", "FLEX", "K", "DST"]);
   assert.deepEqual(candidate.sleeperPlayerIds, ["4984", "9221"]);
   assert.deepEqual(candidate.unsupportedLineupSlots, []);
 });
 
-test("flags unsupported lineup and reception scoring without guessing", () => {
+test("flags unsupported lineup slots and represents nonstandard reception scoring as custom", () => {
   assert.deepEqual(translateLineupSlots(["QB", "SUPER_FLEX", "DL", "BN"]), {
     lineupSlots: ["QB"],
     unsupportedLineupSlots: ["SUPER_FLEX", "DL"]
@@ -70,7 +71,7 @@ test("flags unsupported lineup and reception scoring without guessing", () => {
   assert.equal(translateScoringFormat(0), "STANDARD");
   assert.equal(translateScoringFormat(0.5), "HALF_PPR");
   assert.equal(translateScoringFormat(1), "PPR");
-  assert.equal(translateScoringFormat(0.25), null);
+  assert.equal(translateScoringFormat(0.25), "CUSTOM");
 });
 
 test("rejects a league from a different season", async () => {

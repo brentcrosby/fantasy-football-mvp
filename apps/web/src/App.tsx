@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import {
   type AuthCredentials,
   type AuthenticatedUser,
@@ -10,6 +10,7 @@ import {
   type RecommendationReport,
   type SavedWeeklyReport,
   type ScoringFormat,
+  type ScoringRules,
   type TeamWriteRequest
 } from "@fantasy-football/shared";
 
@@ -38,6 +39,7 @@ import {
 interface ReportInputs {
   week: number;
   scoringFormat: ScoringFormat;
+  scoringRules: ScoringRules | null;
   lineupSlots: LineupSlot[];
   rosterIds: string[];
 }
@@ -45,9 +47,19 @@ interface ReportInputs {
 interface TeamSnapshot {
   name: string;
   scoringFormat: ScoringFormat;
+  scoringRules: ScoringRules | null;
   lineupSlots: LineupSlot[];
   rosterIds: string[];
 }
+
+type WorkspaceTab = "TEAM" | "ROSTER" | "LINEUP";
+
+const WORKSPACE_TAB_ORDER: WorkspaceTab[] = ["TEAM", "ROSTER", "LINEUP"];
+const WORKSPACE_TAB_IDS: Record<WorkspaceTab, string> = {
+  TEAM: "team-tab",
+  ROSTER: "roster-tab",
+  LINEUP: "lineup-tab"
+};
 
 export function App() {
   const [currentUser, setCurrentUser] = useState<AuthenticatedUser | null>(null);
@@ -60,6 +72,7 @@ export function App() {
   const [savedTeamSnapshot, setSavedTeamSnapshot] = useState<TeamSnapshot | null>(null);
   const [week, setWeek] = useState(1);
   const [scoringFormat, setScoringFormat] = useState<ScoringFormat>("HALF_PPR");
+  const [scoringRules, setScoringRules] = useState<ScoringRules | null>(null);
   const [lineupSlots, setLineupSlots] = useState<LineupSlot[]>([...DEFAULT_LINEUP_SLOTS]);
   const [report, setReport] = useState<RecommendationReport | null>(null);
   const [reportInputs, setReportInputs] = useState<ReportInputs | null>(null);
@@ -82,10 +95,11 @@ export function App() {
   const [authSubmitting, setAuthSubmitting] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [activeTab, setActiveTab] = useState<WorkspaceTab>("TEAM");
 
-  const currentInputs = buildReportInputs(week, scoringFormat, lineupSlots, selectedPlayers);
+  const currentInputs = buildReportInputs(week, scoringFormat, scoringRules, lineupSlots, selectedPlayers);
   const currentTeam = teams.find((team) => team.id === teamId) ?? null;
-  const currentTeamSnapshot = buildTeamSnapshot(teamName, scoringFormat, lineupSlots, selectedPlayers);
+  const currentTeamSnapshot = buildTeamSnapshot(teamName, scoringFormat, scoringRules, lineupSlots, selectedPlayers);
   const isTeamDirty = savedTeamSnapshot === null || !teamSnapshotsMatch(currentTeamSnapshot, savedTeamSnapshot);
   const isReportStale = report !== null && reportInputs !== null && !inputsMatch(currentInputs, reportInputs);
   const displayedReport = viewedSavedReport?.report ?? report;
@@ -192,6 +206,7 @@ export function App() {
 
       if (teamsResult.value[0]) {
         hydrateTeam(teamsResult.value[0]);
+        setActiveTab("LINEUP");
       } else {
         resetTeamDraft();
       }
@@ -210,9 +225,18 @@ export function App() {
     setTeamId(team.id);
     setTeamName(team.name);
     setScoringFormat(team.settings.scoringFormat);
+    setScoringRules(team.settings.scoringRules ?? null);
     setLineupSlots([...team.settings.lineupSlots]);
     setSelectedPlayers(rosterPlayers);
-    setSavedTeamSnapshot(buildTeamSnapshot(team.name, team.settings.scoringFormat, team.settings.lineupSlots, rosterPlayers));
+    setSavedTeamSnapshot(
+      buildTeamSnapshot(
+        team.name,
+        team.settings.scoringFormat,
+        team.settings.scoringRules ?? null,
+        team.settings.lineupSlots,
+        rosterPlayers
+      )
+    );
     clearReportView();
   }
 
@@ -220,6 +244,7 @@ export function App() {
     setTeamId(null);
     setTeamName("");
     setScoringFormat("HALF_PPR");
+    setScoringRules(null);
     setLineupSlots([...DEFAULT_LINEUP_SLOTS]);
     setSelectedPlayers([]);
     setSavedTeamSnapshot(null);
@@ -232,6 +257,7 @@ export function App() {
     setTeamLoadError(null);
     setTeamSaveError(null);
     setLoadErrorBlocksSave(false);
+    setActiveTab("TEAM");
   }
 
   function handleSelectTeam(nextTeamId: string) {
@@ -240,6 +266,7 @@ export function App() {
     if (team) {
       hydrateTeam(team);
       setTeamSaveError(null);
+      setActiveTab("LINEUP");
     }
   }
 
@@ -303,6 +330,9 @@ export function App() {
 
   function handleScoringFormatChange(nextScoringFormat: ScoringFormat) {
     setScoringFormat(nextScoringFormat);
+    if (nextScoringFormat !== "CUSTOM") {
+      setScoringRules(null);
+    }
     setTeamSaveError(null);
   }
 
@@ -313,7 +343,7 @@ export function App() {
 
     const request: TeamWriteRequest = {
       name: teamName,
-      settings: { scoringFormat, lineupSlots },
+      settings: { scoringFormat, lineupSlots, ...(scoringRules ? { scoringRules } : {}) },
       rosterPlayerIds: selectedPlayers.map((player) => player.id)
     };
 
@@ -340,6 +370,7 @@ export function App() {
     setTeamLoadError(null);
     setTeamSaveError(null);
     setLoadErrorBlocksSave(false);
+    setActiveTab("ROSTER");
   }
 
   async function handleGenerateLineup() {
@@ -353,7 +384,7 @@ export function App() {
     try {
       const nextReport = await generateRecommendation({
         week,
-        settings: { scoringFormat, lineupSlots },
+        settings: { scoringFormat, lineupSlots, ...(scoringRules ? { scoringRules } : {}) },
         rosterPlayerIds: selectedPlayers.map((player) => player.id)
       });
 
@@ -392,6 +423,30 @@ export function App() {
     setReportInputs(null);
     setViewedSavedReport(null);
     setCurrentReportSavedId(null);
+  }
+
+  function handleWorkspaceTabKeyDown(event: ReactKeyboardEvent<HTMLElement>) {
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) {
+      return;
+    }
+
+    const currentIndex = WORKSPACE_TAB_ORDER.indexOf(activeTab);
+    let nextIndex = currentIndex;
+
+    if (event.key === "ArrowLeft") {
+      nextIndex = (currentIndex - 1 + WORKSPACE_TAB_ORDER.length) % WORKSPACE_TAB_ORDER.length;
+    } else if (event.key === "ArrowRight") {
+      nextIndex = (currentIndex + 1) % WORKSPACE_TAB_ORDER.length;
+    } else if (event.key === "Home") {
+      nextIndex = 0;
+    } else if (event.key === "End") {
+      nextIndex = WORKSPACE_TAB_ORDER.length - 1;
+    }
+
+    event.preventDefault();
+    const nextTab = WORKSPACE_TAB_ORDER[nextIndex];
+    setActiveTab(nextTab);
+    requestAnimationFrame(() => document.getElementById(WORKSPACE_TAB_IDS[nextTab])?.focus());
   }
 
   if (authLoading || !currentUser) {
@@ -438,36 +493,80 @@ export function App() {
         </dl>
       </header>
 
-      <div className="workflow-grid">
-        <div className="workflow-main">
+      <nav className="workspace-tabs" role="tablist" aria-label="Team workspace" onKeyDown={handleWorkspaceTabKeyDown}>
+        <WorkspaceTabButton
+          id="team-tab"
+          panelId="team-panel"
+          label="Team"
+          meta={teamId ? "Saved" : "Setup"}
+          active={activeTab === "TEAM"}
+          onClick={() => setActiveTab("TEAM")}
+        />
+        <WorkspaceTabButton
+          id="roster-tab"
+          panelId="roster-panel"
+          label="Roster"
+          meta={`${selectedPlayers.length} players`}
+          active={activeTab === "ROSTER"}
+          onClick={() => setActiveTab("ROSTER")}
+        />
+        <WorkspaceTabButton
+          id="lineup-tab"
+          panelId="lineup-panel"
+          label="Lineup"
+          meta={`Week ${displayedReport?.week ?? week}`}
+          active={activeTab === "LINEUP"}
+          onClick={() => setActiveTab("LINEUP")}
+        />
+      </nav>
+
+      <section
+        id="team-panel"
+        className="workspace-panel team-workspace"
+        role="tabpanel"
+        aria-labelledby="team-tab"
+        hidden={activeTab !== "TEAM"}
+      >
           <SleeperImportPanel
             connection={currentTeam?.sleeper ?? null}
             disabled={savingTeam || teamLoading}
             onImported={handleSleeperImported}
           />
-          <TeamControls
-            name={teamName}
-            status={persistenceStatus}
-            hasSavedTeam={teamId !== null}
-            loadError={teamLoadError}
-            saveError={teamSaveError}
-            saveDisabled={savingTeam || teamLoading || loadErrorBlocksSave || teamName.trim().length === 0 || !isTeamDirty}
-            controlsDisabled={savingTeam}
-            teams={teams}
-            selectedTeamId={teamId}
-            onNameChange={handleTeamNameChange}
-            onSelectTeam={handleSelectTeam}
-            onNewTeam={resetTeamDraft}
-            onSave={handleSaveTeam}
-          />
-          <LeagueControls
-            week={week}
-            scoringFormat={scoringFormat}
-            disabled={savingTeam}
-            weekLocked={playerCatalogMetadata?.source === "LIVE"}
-            onWeekChange={setWeek}
-            onScoringFormatChange={handleScoringFormatChange}
-          />
+          <div className="team-settings-stack">
+            <TeamControls
+              name={teamName}
+              status={persistenceStatus}
+              hasSavedTeam={teamId !== null}
+              loadError={teamLoadError}
+              saveError={teamSaveError}
+              saveDisabled={savingTeam || teamLoading || loadErrorBlocksSave || teamName.trim().length === 0 || !isTeamDirty}
+              controlsDisabled={savingTeam}
+              teams={teams}
+              selectedTeamId={teamId}
+              onNameChange={handleTeamNameChange}
+              onSelectTeam={handleSelectTeam}
+              onNewTeam={resetTeamDraft}
+              onSave={handleSaveTeam}
+            />
+            <LeagueControls
+              week={week}
+              scoringFormat={scoringFormat}
+              hasImportedScoringRules={scoringRules !== null}
+              disabled={savingTeam}
+              weekLocked={playerCatalogMetadata?.source === "LIVE"}
+              onWeekChange={setWeek}
+              onScoringFormatChange={handleScoringFormatChange}
+            />
+          </div>
+      </section>
+
+      <section
+        id="roster-panel"
+        className="workspace-panel roster-workspace"
+        role="tabpanel"
+        aria-labelledby="roster-tab"
+        hidden={activeTab !== "ROSTER"}
+      >
           <RosterEditor
             players={availablePlayers}
             selectedPlayers={selectedPlayers}
@@ -478,113 +577,157 @@ export function App() {
             error={playersError}
             disabled={savingTeam}
           />
-        </div>
+      </section>
 
-        <aside className="panel generate-panel" aria-labelledby="generate-heading">
-          <div className="section-header">
-            <div>
-              <p className="eyebrow">Week {week} Decision</p>
-              <h2 id="generate-heading">Starting Lineup</h2>
+      <section
+        id="lineup-panel"
+        className="workspace-panel lineup-workspace"
+        role="tabpanel"
+        aria-labelledby="lineup-tab"
+        hidden={activeTab !== "LINEUP"}
+      >
+          <section className="panel lineup-generate-panel" aria-labelledby="generate-heading">
+            <div className="section-header">
+              <div>
+                <p className="eyebrow">Week {week} Decision</p>
+                <h2 id="generate-heading">Starting Lineup</h2>
+              </div>
             </div>
-          </div>
 
-          <div className="generate-body">
-            <dl className="generate-stats">
-              <div>
-                <dt>Players</dt>
-                <dd>{selectedPlayers.length}</dd>
+            <div className="generate-body lineup-generate-body">
+              <dl className="generate-stats">
+                <div>
+                  <dt>Players</dt>
+                  <dd>{selectedPlayers.length}</dd>
+                </div>
+                <div>
+                  <dt>Slots</dt>
+                  <dd>{lineupSlots.length}</dd>
+                </div>
+              </dl>
+              <div className="generate-messages">
+                {selectedPlayers.length === 0 && <p className="state-message">Select at least one player to generate a lineup.</p>}
+                {recommendationError && <p className="error inline-error">{recommendationError}</p>}
+                {isReportStale && <p className="stale-message">This report is stale. Generate a new lineup to use the current roster and settings.</p>}
+                {report && isTeamDirty && <p className="save-hint">Save the current team changes before archiving this report.</p>}
               </div>
-              <div>
-                <dt>Slots</dt>
-                <dd>{lineupSlots.length}</dd>
+              <div className="generate-actions">
+                <button className="generate-button" type="button" disabled={selectedPlayers.length === 0 || submitting} onClick={handleGenerateLineup}>
+                  {submitting ? "Generating..." : "Generate Lineup"}
+                </button>
+                <button
+                  className="utility-button save-report-button"
+                  type="button"
+                  disabled={
+                    !report ||
+                    isReportStale ||
+                    isTeamDirty ||
+                    !teamId ||
+                    savingReport ||
+                    viewedSavedReport !== null ||
+                    currentReportSavedId !== null
+                  }
+                  onClick={handleSaveReport}
+                >
+                  {savingReport
+                    ? "Saving..."
+                    : currentReportSavedId
+                      ? "Report Saved"
+                      : viewedSavedReport
+                        ? "Viewing Saved"
+                        : "Save Report"}
+                </button>
               </div>
-            </dl>
-            {selectedPlayers.length === 0 && <p className="state-message">Select at least one player to generate a lineup.</p>}
-            {recommendationError && <p className="error inline-error">{recommendationError}</p>}
-            {isReportStale && <p className="stale-message">This report is stale. Generate a new lineup to use the current roster and settings.</p>}
+            </div>
+          </section>
 
-            <button className="generate-button" type="button" disabled={selectedPlayers.length === 0 || submitting} onClick={handleGenerateLineup}>
-              {submitting ? "Generating..." : "Generate Lineup"}
-            </button>
-            <button
-              className="utility-button save-report-button"
-              type="button"
-              disabled={
-                !report ||
-                isReportStale ||
-                isTeamDirty ||
-                !teamId ||
-                savingReport ||
-                viewedSavedReport !== null ||
-                currentReportSavedId !== null
-              }
-              onClick={handleSaveReport}
-            >
-              {savingReport
-                ? "Saving..."
-                : currentReportSavedId
-                  ? "Report Saved"
-                  : viewedSavedReport
-                    ? "Viewing Saved"
-                    : "Save Report"}
-            </button>
-            {report && isTeamDirty && <p className="save-hint">Save the current team changes before archiving this report.</p>}
-          </div>
-        </aside>
-      </div>
+          {displayedReport && (
+            <>
+              {unfilledSlots.length > 0 && (
+                <section className="warning-panel" aria-live="polite">
+                  <strong>Unfilled lineup positions:</strong> {unfilledSlots.join(", ")}
+                </section>
+              )}
 
-      {displayedReport && (
-        <>
-          {unfilledSlots.length > 0 && (
-            <section className="warning-panel" aria-live="polite">
-              <strong>Unfilled lineup positions:</strong> {unfilledSlots.join(", ")}
-            </section>
+              <div className="dashboard-grid">
+                <ReportPanel report={displayedReport} statusLabel={viewedSavedReport ? "Saved snapshot" : "Rule-based"} />
+                <div className="dashboard-side">
+                  <RiskPanel report={displayedReport} />
+                  <ReportHistory
+                    reports={savedReports}
+                    loading={reportsLoading}
+                    error={reportsError}
+                    selectedReportId={viewedSavedReport?.id ?? null}
+                    currentReportAvailable={report !== null}
+                    onSelect={setViewedSavedReport}
+                    onShowCurrent={() => setViewedSavedReport(null)}
+                  />
+                </div>
+              </div>
+            </>
           )}
 
-          <div className="dashboard-grid">
-            <ReportPanel report={displayedReport} statusLabel={viewedSavedReport ? "Saved snapshot" : "Rule-based"} />
-            <div className="dashboard-side">
-              <RiskPanel report={displayedReport} />
+          {!displayedReport && teamId && (
+            <div className="history-only">
               <ReportHistory
                 reports={savedReports}
                 loading={reportsLoading}
                 error={reportsError}
-                selectedReportId={viewedSavedReport?.id ?? null}
-                currentReportAvailable={report !== null}
+                selectedReportId={null}
+                currentReportAvailable={false}
                 onSelect={setViewedSavedReport}
                 onShowCurrent={() => setViewedSavedReport(null)}
               />
             </div>
-          </div>
-        </>
-      )}
-
-      {!displayedReport && teamId && (
-        <div className="history-only">
-          <ReportHistory
-            reports={savedReports}
-            loading={reportsLoading}
-            error={reportsError}
-            selectedReportId={null}
-            currentReportAvailable={false}
-            onSelect={setViewedSavedReport}
-            onShowCurrent={() => setViewedSavedReport(null)}
-          />
-        </div>
-      )}
+          )}
+      </section>
     </main>
+  );
+}
+
+function WorkspaceTabButton({
+  id,
+  panelId,
+  label,
+  meta,
+  active,
+  onClick
+}: {
+  id: string;
+  panelId: string;
+  label: string;
+  meta: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      id={id}
+      type="button"
+      role="tab"
+      aria-selected={active}
+      aria-controls={panelId}
+      tabIndex={active ? 0 : -1}
+      className={active ? "is-active" : undefined}
+      onClick={onClick}
+    >
+      <span>{label}</span>
+      <small>{meta}</small>
+    </button>
   );
 }
 
 function buildReportInputs(
   week: number,
   scoringFormat: ScoringFormat,
+  scoringRules: ScoringRules | null,
   lineupSlots: LineupSlot[],
   selectedPlayers: Player[]
 ): ReportInputs {
   return {
     week,
     scoringFormat,
+    scoringRules,
     lineupSlots: [...lineupSlots],
     rosterIds: selectedPlayers.map((player) => player.id).sort()
   };
@@ -593,12 +736,14 @@ function buildReportInputs(
 function buildTeamSnapshot(
   name: string,
   scoringFormat: ScoringFormat,
+  scoringRules: ScoringRules | null,
   lineupSlots: LineupSlot[],
   selectedPlayers: Player[]
 ): TeamSnapshot {
   return {
     name: name.trim(),
     scoringFormat,
+    scoringRules,
     lineupSlots: [...lineupSlots],
     rosterIds: selectedPlayers.map((player) => player.id).sort()
   };
@@ -608,6 +753,7 @@ function inputsMatch(left: ReportInputs, right: ReportInputs): boolean {
   return (
     left.week === right.week &&
     left.scoringFormat === right.scoringFormat &&
+    scoringRulesMatch(left.scoringRules, right.scoringRules) &&
     arraysMatch(left.lineupSlots, right.lineupSlots) &&
     arraysMatch(left.rosterIds, right.rosterIds)
   );
@@ -617,6 +763,7 @@ function teamSnapshotsMatch(left: TeamSnapshot, right: TeamSnapshot): boolean {
   return (
     left.name === right.name &&
     left.scoringFormat === right.scoringFormat &&
+    scoringRulesMatch(left.scoringRules, right.scoringRules) &&
     arraysMatch(left.lineupSlots, right.lineupSlots) &&
     arraysMatch(left.rosterIds, right.rosterIds)
   );
@@ -624,6 +771,15 @@ function teamSnapshotsMatch(left: TeamSnapshot, right: TeamSnapshot): boolean {
 
 function arraysMatch<T>(left: T[], right: T[]): boolean {
   return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
+function scoringRulesMatch(left: ScoringRules | null, right: ScoringRules | null): boolean {
+  if (left === null || right === null) return left === right;
+
+  const leftEntries = Object.entries(left).sort(([leftKey], [rightKey]) => leftKey.localeCompare(rightKey));
+  const rightEntries = Object.entries(right).sort(([leftKey], [rightKey]) => leftKey.localeCompare(rightKey));
+
+  return JSON.stringify(leftEntries) === JSON.stringify(rightEntries);
 }
 
 function getPersistenceStatus(input: {

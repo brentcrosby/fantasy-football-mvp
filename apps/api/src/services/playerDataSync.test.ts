@@ -51,6 +51,7 @@ test("builds current offensive players and defenses from provider fixtures", () 
     injuryStatus: "HEALTHY",
     projectedPoints: 7.4,
     hasProjection: true,
+    projectionSource: "Sleeper + FantasyPros via DynastyProcess",
     targetShare: null,
     dataSource: "LIVE",
     externalId: "JAX",

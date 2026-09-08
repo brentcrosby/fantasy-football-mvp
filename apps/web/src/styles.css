@@ -335,6 +335,116 @@ h3 {
   font-size: 1.45rem;
 }
 
+.workspace-tabs {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-bottom: 1px solid var(--line-strong);
+  background: rgba(9, 12, 12, 0.96);
+}
+
+.workspace-tabs button {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  min-height: 60px;
+  align-content: center;
+  gap: 1px;
+  border: 0;
+  border-right: 1px solid var(--line);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  text-align: left;
+}
+
+.workspace-tabs button:last-child {
+  border-right: 0;
+}
+
+.workspace-tabs button::after {
+  position: absolute;
+  inset: auto 0 -1px;
+  height: 3px;
+  background: transparent;
+  content: "";
+}
+
+.workspace-tabs button:hover,
+.workspace-tabs button.is-active {
+  background: #111615;
+  color: var(--text);
+}
+
+.workspace-tabs button.is-active::after {
+  background: var(--green);
+}
+
+.workspace-tabs button:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: -4px;
+}
+
+.workspace-tabs span,
+.workspace-tabs small {
+  overflow: hidden;
+  padding: 0 18px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-tabs span {
+  font-size: 0.8rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.workspace-tabs small {
+  color: var(--dim);
+  font-size: 0.66rem;
+  font-weight: 750;
+  text-transform: uppercase;
+}
+
+.workspace-panel {
+  margin-top: 18px;
+}
+
+.workspace-panel[hidden] {
+  display: none;
+}
+
+.team-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.team-settings-stack,
+.lineup-workspace,
+.generate-messages,
+.generate-actions {
+  display: grid;
+  gap: 18px;
+}
+
+.roster-workspace {
+  min-width: 0;
+}
+
+.lineup-generate-body {
+  grid-template-columns: 220px minmax(220px, 1fr) 220px;
+  align-items: start;
+}
+
+.generate-messages,
+.generate-actions {
+  gap: 10px;
+}
+
 .workflow-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 320px;
@@ -393,6 +503,12 @@ h3 {
   grid-template-columns: repeat(2, minmax(180px, 1fr));
   gap: 14px;
   padding: 16px 18px 18px;
+}
+
+.scoring-source {
+  margin: -4px 18px 16px;
+  color: var(--dim);
+  font-size: 0.72rem;
 }
 
 .field {
@@ -1106,6 +1222,65 @@ h3 {
   font-size: 0.88rem;
 }
 
+.projection-summary {
+  display: grid;
+  gap: 3px;
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--line);
+  background: #0d1110;
+  color: var(--muted);
+  font-size: 0.76rem;
+}
+
+.projection-summary strong {
+  color: var(--green);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+}
+
+.projection-summary small {
+  color: var(--dim);
+}
+
+.projection-breakdown {
+  margin-top: 7px;
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.projection-breakdown summary {
+  width: fit-content;
+  color: var(--green);
+  cursor: pointer;
+}
+
+.projection-breakdown dl {
+  display: grid;
+  gap: 3px;
+  margin: 7px 0 0;
+}
+
+.projection-breakdown dl div {
+  display: flex;
+  max-width: 260px;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.projection-breakdown dt {
+  overflow-wrap: anywhere;
+}
+
+.projection-breakdown dt span {
+  color: var(--dim);
+}
+
+.projection-breakdown dd {
+  margin: 0;
+  color: var(--text);
+  font-weight: 800;
+}
+
 .lineup-grid {
   display: grid;
 }
@@ -1267,6 +1442,19 @@ h3 {
     grid-template-columns: 1fr;
   }
 
+  .team-workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .lineup-generate-body {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .generate-messages {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
   .generate-panel {
     position: static;
   }
@@ -1337,6 +1525,36 @@ h3 {
     font-size: 1.18rem;
   }
 
+  .workspace-tabs button {
+    min-height: 54px;
+  }
+
+  .workspace-tabs span,
+  .workspace-tabs small {
+    padding: 0 10px;
+  }
+
+  .workspace-tabs span {
+    font-size: 0.73rem;
+  }
+
+  .workspace-tabs small {
+    font-size: 0.58rem;
+  }
+
+  .workspace-panel {
+    margin-top: 14px;
+  }
+
+  .lineup-generate-body {
+    grid-template-columns: 1fr;
+  }
+
+  .generate-messages {
+    grid-column: auto;
+    grid-row: auto;
+  }
+
   .workflow-grid {
     margin-top: 14px;
   }
@@ -1365,6 +1583,10 @@ h3 {
   .sleeper-league-picker {
     grid-template-columns: 1fr;
     padding: 14px;
+  }
+
+  .scoring-source {
+    margin: -2px 14px 14px;
   }
 
   .sleeper-league-picker {

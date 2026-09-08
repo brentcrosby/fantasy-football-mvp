@@ -1,7 +1,18 @@
 export type Position = "QB" | "RB" | "WR" | "TE" | "K" | "DST";
 export type LineupSlot = Position | "FLEX";
-export type ScoringFormat = "STANDARD" | "HALF_PPR" | "PPR";
+export type ScoringFormat = "STANDARD" | "HALF_PPR" | "PPR" | "CUSTOM";
 export type InjuryStatus = "HEALTHY" | "QUESTIONABLE" | "DOUBTFUL" | "OUT" | "IR" | "SUSPENDED";
+export type ScoringRules = Record<string, number>;
+export type ProjectionStatLine = Record<string, number>;
+export type ProjectionMethod = "LEAGUE_RULES" | "PROVIDER_TOTAL";
+
+export interface ProjectionBreakdownEntry {
+  stat: string;
+  label: string;
+  projectedValue: number;
+  pointsPerUnit: number;
+  fantasyPoints: number;
+}
 
 export interface Player {
   id: string;
@@ -13,6 +24,10 @@ export interface Player {
   projectedPoints: number;
   hasProjection?: boolean;
   targetShare?: number;
+  projectionStats?: ProjectionStatLine;
+  projectionSource?: string;
+  projectionMethod?: ProjectionMethod;
+  projectionBreakdown?: ProjectionBreakdownEntry[];
 }
 
 export interface PlayerCatalogMetadata {
@@ -35,6 +50,7 @@ export interface RosterPlayer {
 export interface LeagueSettings {
   scoringFormat: ScoringFormat;
   lineupSlots: LineupSlot[];
+  scoringRules?: ScoringRules;
 }
 
 export interface RecommendationRequest {
@@ -133,6 +149,11 @@ export interface RecommendationReport {
   riskNotes: string[];
   positionNeeds: string[];
   summary: string;
+  projectionSummary?: {
+    method: ProjectionMethod | "MIXED";
+    sourceLabel: string;
+    message: string;
+  };
 }
 
 export interface SavedWeeklyReport {
@@ -166,18 +187,126 @@ export const DEFAULT_LINEUP_SLOTS: LineupSlot[] = [
   "DST"
 ];
 
+const BASE_SCORING_RULES: ScoringRules = {
+  pass_yd: 0.04,
+  pass_td: 4,
+  pass_int: -2,
+  pass_2pt: 2,
+  rush_yd: 0.1,
+  rush_td: 6,
+  rush_2pt: 2,
+  rec_yd: 0.1,
+  rec_td: 6,
+  rec_2pt: 2,
+  fum_lost: -2,
+  xpm: 1,
+  fgm_0_19: 3,
+  fgm_20_29: 3,
+  fgm_30_39: 3,
+  fgm_40_49: 4,
+  fgm_50p: 5,
+  sack: 1,
+  int: 2,
+  fum_rec: 2,
+  def_td: 6,
+  safe: 2,
+  blk_kick: 2,
+  def_2pt: 2,
+  pts_allow_0: 10,
+  pts_allow_1_6: 7,
+  pts_allow_7_13: 4,
+  pts_allow_14_20: 1,
+  pts_allow_21_27: 0,
+  pts_allow_28_34: -1,
+  pts_allow_35p: -4
+};
+
+const STAT_LABELS: Record<string, string> = {
+  pass_yd: "Passing yards",
+  pass_td: "Passing TDs",
+  pass_int: "Interceptions",
+  pass_2pt: "Passing 2-point conversions",
+  rush_yd: "Rushing yards",
+  rush_td: "Rushing TDs",
+  rush_2pt: "Rushing 2-point conversions",
+  rec: "Receptions",
+  rec_yd: "Receiving yards",
+  rec_td: "Receiving TDs",
+  rec_2pt: "Receiving 2-point conversions",
+  fum_lost: "Fumbles lost",
+  xpm: "Extra points made",
+  fgm_0_19: "Field goals, 0-19 yards",
+  fgm_20_29: "Field goals, 20-29 yards",
+  fgm_30_39: "Field goals, 30-39 yards",
+  fgm_40_49: "Field goals, 40-49 yards",
+  fgm_50p: "Field goals, 50+ yards",
+  sack: "Sacks",
+  int: "Defensive interceptions",
+  fum_rec: "Fumble recoveries",
+  def_td: "Defensive TDs",
+  safe: "Safeties",
+  blk_kick: "Blocked kicks",
+  def_2pt: "Defensive 2-point returns",
+  pts_allow_0: "Shutouts",
+  pts_allow_1_6: "Games allowing 1-6 points",
+  pts_allow_7_13: "Games allowing 7-13 points",
+  pts_allow_14_20: "Games allowing 14-20 points",
+  pts_allow_21_27: "Games allowing 21-27 points",
+  pts_allow_28_34: "Games allowing 28-34 points",
+  pts_allow_35p: "Games allowing 35+ points"
+};
+
+export function defaultScoringRules(scoringFormat: ScoringFormat): ScoringRules {
+  return {
+    ...BASE_SCORING_RULES,
+    rec: scoringFormat === "PPR" ? 1 : scoringFormat === "HALF_PPR" ? 0.5 : 0
+  };
+}
+
+export function scoreProjectedStatLine(
+  stats: ProjectionStatLine,
+  scoringRules: ScoringRules
+): { points: number; breakdown: ProjectionBreakdownEntry[]; matchedStatCount: number } {
+  const breakdown = Object.entries(stats).flatMap(([stat, projectedValue]) => {
+    const pointsPerUnit = scoringRules[stat];
+
+    if (!Number.isFinite(projectedValue) || !Number.isFinite(pointsPerUnit)) return [];
+
+    const fantasyPoints = projectedValue * pointsPerUnit;
+
+    return [{
+      stat,
+      label: STAT_LABELS[stat] ?? stat.replaceAll("_", " "),
+      projectedValue,
+      pointsPerUnit,
+      fantasyPoints
+    }];
+  });
+
+  return {
+    points: roundProjection(breakdown.reduce((total, entry) => total + entry.fantasyPoints, 0)),
+    breakdown: breakdown
+      .filter((entry) => entry.projectedValue !== 0 && entry.fantasyPoints !== 0)
+      .sort((left, right) => Math.abs(right.fantasyPoints) - Math.abs(left.fantasyPoints)),
+    matchedStatCount: breakdown.length
+  };
+}
+
 export function buildLineupRecommendation(request: RecommendationRequest): RecommendationReport {
+  const scoringRules = request.settings.scoringRules ?? defaultScoringRules(request.settings.scoringFormat);
+  const scoredRoster = request.roster.map(({ player }) => ({ player: applyLeagueProjection(player, scoringRules) }));
+  const scoredRequest = { ...request, roster: scoredRoster };
   const selectedIds = new Set<string>();
   const starters: SlotAssignment[] = [];
-  const riskNotes = buildRiskNotes(request);
+  const riskNotes = buildRiskNotes(scoredRequest);
 
   for (const slot of request.settings.lineupSlots) {
-    const eligiblePlayers = request.roster
+    const eligiblePlayers = scoredRoster
       .map((rosterPlayer) => rosterPlayer.player)
       .filter((player) => !selectedIds.has(player.id))
       .filter((player) => isEligibleForSlot(player, slot))
       .filter((player) => isStartable(player, request.week))
-      .sort((a, b) => adjustedProjection(b, request.settings.scoringFormat) - adjustedProjection(a, request.settings.scoringFormat));
+      .sort((a, b) => adjustedProjection(b) - adjustedProjection(a));
 
     const selected = eligiblePlayers[0];
 
@@ -191,12 +320,12 @@ export function buildLineupRecommendation(request: RecommendationRequest): Recom
     }
   }
 
-  const bench = request.roster
+  const bench = scoredRoster
     .map((rosterPlayer) => rosterPlayer.player)
     .filter((player) => !selectedIds.has(player.id))
-    .sort((a, b) => adjustedProjection(b, request.settings.scoringFormat) - adjustedProjection(a, request.settings.scoringFormat));
+    .sort((a, b) => adjustedProjection(b) - adjustedProjection(a));
 
-  const positionNeeds = buildPositionNeeds(request, starters, bench);
+  const positionNeeds = buildPositionNeeds(scoredRequest, starters, bench);
 
   return {
     week: request.week,
@@ -204,16 +333,66 @@ export function buildLineupRecommendation(request: RecommendationRequest): Recom
     bench,
     riskNotes,
     positionNeeds,
-    summary: buildSummary(starters, riskNotes, positionNeeds)
+    summary: buildSummary(starters, riskNotes, positionNeeds),
+    projectionSummary: buildProjectionSummary(scoredRoster.map(({ player }) => player))
   };
 }
 
-export function adjustedProjection(player: Player, scoringFormat: ScoringFormat): number {
-  const receptionValue = scoringFormat === "PPR" ? 1 : scoringFormat === "HALF_PPR" ? 0.5 : 0;
-  const receivingUsageBoost = player.targetShare ? player.targetShare * receptionValue : 0;
+export function adjustedProjection(player: Player): number {
   const injuryPenalty = player.injuryStatus === "QUESTIONABLE" ? 1.5 : player.injuryStatus === "DOUBTFUL" ? 4 : 0;
 
-  return Math.max(0, player.projectedPoints + receivingUsageBoost - injuryPenalty);
+  return Math.max(0, player.projectedPoints - injuryPenalty);
+}
+
+function applyLeagueProjection(player: Player, scoringRules: ScoringRules): Player {
+  if (!player.projectionStats) {
+    return { ...player, projectionMethod: "PROVIDER_TOTAL" };
+  }
+
+  const result = scoreProjectedStatLine(player.projectionStats, scoringRules);
+
+  if (result.matchedStatCount === 0) {
+    return { ...player, projectionMethod: "PROVIDER_TOTAL" };
+  }
+
+  return {
+    ...player,
+    projectedPoints: Math.max(0, result.points),
+    projectionMethod: "LEAGUE_RULES",
+    projectionBreakdown: result.breakdown
+  };
+}
+
+function buildProjectionSummary(players: Player[]): NonNullable<RecommendationReport["projectionSummary"]> {
+  const methods = new Set(players.map((player) => player.projectionMethod ?? "PROVIDER_TOTAL"));
+  const sources = [...new Set(players.map((player) => player.projectionSource).filter((source): source is string => Boolean(source)))];
+  const sourceLabel = sources.length === 1 ? sources[0] : sources.length > 1 ? "Multiple projection sources" : "Projection provider";
+
+  if (methods.size === 1 && methods.has("LEAGUE_RULES")) {
+    return {
+      method: "LEAGUE_RULES",
+      sourceLabel,
+      message: "Projected stat lines were scored with this team's league rules."
+    };
+  }
+
+  if (methods.size > 1) {
+    return {
+      method: "MIXED",
+      sourceLabel,
+      message: "League scoring was applied where stat lines were available; remaining players use provider totals."
+    };
+  }
+
+  return {
+    method: "PROVIDER_TOTAL",
+    sourceLabel,
+    message: "This source supplies point totals without stat components, so provider totals are shown unchanged."
+  };
+}
+
+function roundProjection(value: number): number {
+  return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
 function isEligibleForSlot(player: Player, slot: LineupSlot): boolean {

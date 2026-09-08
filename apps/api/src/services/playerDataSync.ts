@@ -1,4 +1,4 @@
-import type { InjuryStatus, PlayerDataSource, Position, Prisma, PrismaClient } from "@prisma/client";
+import { Prisma, type InjuryStatus, type PlayerDataSource, type Position, type PrismaClient } from "@prisma/client";
 import { parse } from "csv-parse/sync";
 import { z } from "zod";
 
@@ -57,6 +57,7 @@ interface LivePlayerRecord {
   injuryStatus: InjuryStatus;
   projectedPoints: number;
   hasProjection: boolean;
+  projectionSource: string;
   targetShare: null;
   dataSource: PlayerDataSource;
   externalId: string;
@@ -178,8 +179,10 @@ export async function syncLivePlayerData(
           nflTeam: player.nflTeam,
           byeWeek: player.byeWeek,
           injuryStatus: player.injuryStatus,
-        projectedPoints: player.projectedPoints,
-        hasProjection: player.hasProjection,
+          projectedPoints: player.projectedPoints,
+          hasProjection: player.hasProjection,
+          projectionStats: Prisma.DbNull,
+          projectionSource: player.projectionSource,
           targetShare: player.targetShare,
           dataSource: player.dataSource,
           externalId: player.externalId,
@@ -302,6 +305,7 @@ export function buildLivePlayerBatch({
         injuryStatus: "HEALTHY",
         projectedPoints,
         hasProjection: true,
+        projectionSource: SOURCE_LABEL,
         targetShare: null,
         dataSource: "LIVE",
         externalId: team,
@@ -335,6 +339,7 @@ export function buildLivePlayerBatch({
       injuryStatus: normalizeInjuryStatus(sleeperPlayer.injury_status),
       projectedPoints,
       hasProjection: true,
+      projectionSource: SOURCE_LABEL,
       targetShare: null,
       dataSource: "LIVE",
       externalId: sleeperId,
@@ -369,6 +374,7 @@ export function buildLivePlayerBatch({
       injuryStatus: normalizeInjuryStatus(sleeperPlayer.injury_status),
       projectedPoints: 0,
       hasProjection: false,
+      projectionSource: SOURCE_LABEL,
       targetShare: null,
       dataSource: "LIVE",
       externalId: sleeperId,

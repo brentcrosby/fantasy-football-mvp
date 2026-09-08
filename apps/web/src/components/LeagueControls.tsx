@@ -3,12 +3,14 @@ import type { ScoringFormat } from "@fantasy-football/shared";
 const SCORING_FORMAT_LABELS: Record<ScoringFormat, string> = {
   STANDARD: "Standard",
   HALF_PPR: "Half PPR",
-  PPR: "PPR"
+  PPR: "PPR",
+  CUSTOM: "Custom"
 };
 
 interface LeagueControlsProps {
   week: number;
   scoringFormat: ScoringFormat;
+  hasImportedScoringRules: boolean;
   disabled: boolean;
   weekLocked: boolean;
   onWeekChange: (week: number) => void;
@@ -18,6 +20,7 @@ interface LeagueControlsProps {
 export function LeagueControls({
   week,
   scoringFormat,
+  hasImportedScoringRules,
   disabled,
   weekLocked,
   onWeekChange,
@@ -58,14 +61,21 @@ export function LeagueControls({
             disabled={disabled}
             onChange={(event) => onScoringFormatChange(event.target.value as ScoringFormat)}
           >
-            {Object.entries(SCORING_FORMAT_LABELS).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
+            {Object.entries(SCORING_FORMAT_LABELS)
+              .filter(([value]) => value !== "CUSTOM" || hasImportedScoringRules)
+              .map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
           </select>
         </label>
       </div>
+      <p className="scoring-source">
+        {hasImportedScoringRules
+          ? "Sleeper scoring rules active."
+          : "Preset scoring rules active."}
+      </p>
     </section>
   );
 }

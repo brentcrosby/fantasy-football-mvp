@@ -254,6 +254,35 @@ test("rejects malformed team requests and duplicate player IDs", async () => {
   assert.equal(duplicate.status, 400);
 });
 
+test("persists custom scoring rules and snapshots them with weekly reports", async () => {
+  const scoringRules = { rec: 0.25, pass_td: 6, bonus_pass_yd_300: 3 };
+  const createResponse = await apiRequest("/api/teams", {
+    method: "POST",
+    body: {
+      ...buildTeamBody("custom scoring", ["p1"]),
+      settings: {
+        scoringFormat: "CUSTOM",
+        lineupSlots: ["QB"],
+        scoringRules
+      }
+    }
+  });
+
+  assert.equal(createResponse.status, 201);
+  const team = (createResponse.body as { team: PersistedFantasyTeam }).team;
+  assert.deepEqual(team.settings.scoringRules, scoringRules);
+
+  const saveResponse = await apiRequest(`/api/teams/${team.id}/reports`, {
+    method: "POST",
+    body: { week: 1 }
+  });
+
+  assert.equal(saveResponse.status, 201);
+  const saved = (saveResponse.body as { report: SavedWeeklyReport }).report;
+  assert.equal(saved.settings.scoringFormat, "CUSTOM");
+  assert.deepEqual(saved.settings.scoringRules, scoringRules);
+});
+
 test("rejects invalid team settings, extra fields, and excessive arrays", async () => {
   const validBody = buildTeamBody("validation", ["p1"]);
   const cases: Array<{ name: string; body: unknown }> = [
@@ -264,6 +293,18 @@ test("rejects invalid team settings, extra fields, and excessive arrays", async 
     {
       name: "empty lineup slots",
       body: { ...validBody, settings: { ...validBody.settings, lineupSlots: [] } }
+    },
+    {
+      name: "custom format without scoring rules",
+      body: { ...validBody, settings: { scoringFormat: "CUSTOM", lineupSlots: ["QB"] } }
+    },
+    {
+      name: "custom format with empty scoring rules",
+      body: { ...validBody, settings: { scoringFormat: "CUSTOM", lineupSlots: ["QB"], scoringRules: {} } }
+    },
+    {
+      name: "invalid scoring rule key",
+      body: { ...validBody, settings: { ...validBody.settings, scoringRules: { "pass td": 6 } } }
     },
     {
       name: "invalid lineup slot",
@@ -566,6 +607,7 @@ test("previews, imports, and refreshes an owned Sleeper roster", async () => {
     assert.equal(importedTeam.sleeper?.leagueId, "123456789");
     assert.equal(importedTeam.sleeper?.username, "testcoach");
     assert.equal(importedTeam.settings.scoringFormat, "HALF_PPR");
+    assert.deepEqual(importedTeam.settings.scoringRules, { rec: 0.5, pass_td: 6, bonus_pass_yd_300: 3 });
     assert.deepEqual(importedTeam.roster.map(({ player }) => player.id).sort(), [...sleeperTestPlayerIds].sort());
 
     const refresh = await apiRequest("/api/sleeper/import", {
@@ -592,7 +634,7 @@ function sleeperLeagueFixture() {
     status: "in_season",
     sport: "nfl",
     roster_positions: ["QB", "RB", "WR", "TE", "FLEX", "K", "DEF", "BN"],
-    scoring_settings: { rec: 0.5 }
+    scoring_settings: { rec: 0.5, pass_td: 6, bonus_pass_yd_300: 3 }
   };
 }
 
