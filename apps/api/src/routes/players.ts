@@ -2,12 +2,19 @@ import { Router } from "express";
 
 import { toPlayerDto } from "../lib/mappers.js";
 import { projectionModelSummary } from "../lib/experimentalProjection.js";
+import { playerDataFreshness } from "../lib/playerDataFreshness.js";
 import { prisma } from "../lib/prisma.js";
 
 export const playersRouter = Router();
 
 playersRouter.get("/", async (_request, response) => {
-  const sync = await prisma.playerDataSync.findUnique({ where: { id: "weekly-player-data" } });
+  const [sync, lastRun] = await Promise.all([
+    prisma.playerDataSync.findUnique({ where: { id: "weekly-player-data" } }),
+    prisma.playerDataSyncRun.findFirst({
+      orderBy: { startedAt: "desc" },
+      select: { status: true, startedAt: true }
+    })
+  ]);
   const livePlayers = sync
     ? await prisma.player.findMany({
         where: {
@@ -35,6 +42,8 @@ playersRouter.get("/", async (_request, response) => {
           season: sync!.season,
           week: sync!.week,
           updatedAt: sync!.sourceUpdatedAt.toISOString(),
+          syncedAt: sync!.syncedAt.toISOString(),
+          freshness: playerDataFreshness(sync, lastRun),
           model: projectionModelSummary()
         }
       : {
@@ -42,7 +51,9 @@ playersRouter.get("/", async (_request, response) => {
           sourceLabel: "Sample player catalog",
           season: null,
           week: null,
-          updatedAt: null
+          updatedAt: null,
+          syncedAt: null,
+          freshness: playerDataFreshness(null, lastRun)
         }
   });
 });

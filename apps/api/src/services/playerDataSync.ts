@@ -113,6 +113,49 @@ export async function syncLivePlayerData(
   prismaClient: PrismaClient,
   { fetcher = fetch, force = false, now = new Date() }: SyncOptions = {}
 ): Promise<PlayerDataSyncResult> {
+  const run = await prismaClient.playerDataSyncRun.create({
+    data: { status: "RUNNING", startedAt: now }
+  });
+
+  try {
+    const result = await syncLivePlayerDataBatch(prismaClient, { fetcher, force, now });
+    const sync = await prismaClient.playerDataSync.findUniqueOrThrow({
+      where: { id: SYNC_ID },
+      select: { sourceUpdatedAt: true }
+    });
+    await prismaClient.playerDataSyncRun.update({
+      where: { id: run.id },
+      data: {
+        status: result.status === "synced" ? "SUCCESS" : "SKIPPED",
+        season: result.season,
+        week: result.week,
+        recordCount: result.recordCount,
+        sourceUpdatedAt: sync.sourceUpdatedAt,
+        completedAt: now
+      }
+    });
+    return result;
+  } catch (error) {
+    try {
+      await prismaClient.playerDataSyncRun.update({
+        where: { id: run.id },
+        data: {
+          status: "FAILED",
+          errorMessage: syncErrorMessage(error),
+          completedAt: now
+        }
+      });
+    } catch (runUpdateError) {
+      console.error("Unable to record failed player-data sync.", runUpdateError);
+    }
+    throw error;
+  }
+}
+
+async function syncLivePlayerDataBatch(
+  prismaClient: PrismaClient,
+  { fetcher = fetch, force = false, now = new Date() }: SyncOptions = {}
+): Promise<PlayerDataSyncResult> {
   const state = sleeperStateSchema.parse(await fetchJson(fetcher, SLEEPER_STATE_URL));
 
   if (state.season_type !== "regular") {
@@ -335,6 +378,11 @@ export async function syncLivePlayerData(
     recordCount: batch.players.length,
     reconciledRosterPlayers: rosterReplacements.length
   };
+}
+
+function syncErrorMessage(error: unknown): string {
+  const message = error instanceof Error ? error.message : "Unknown player-data sync error.";
+  return message.slice(0, 500);
 }
 
 export function buildAlertCreates(

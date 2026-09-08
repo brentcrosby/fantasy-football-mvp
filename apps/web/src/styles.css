@@ -773,8 +773,25 @@ h3 {
   color: var(--green);
 }
 
-.catalog-status span:last-child {
+.catalog-status > span:last-child {
   margin-left: auto;
+}
+
+.data-freshness {
+  padding: 3px 7px;
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  font-size: 0.58rem;
+}
+
+.data-freshness-fresh {
+  color: var(--green);
+}
+
+.data-freshness-stale,
+.data-freshness-unavailable,
+.data-refresh-warning {
+  color: var(--amber);
 }
 
 .player-toolbar {
@@ -1875,7 +1892,7 @@ h3 {
     padding: 9px 14px;
   }
 
-  .catalog-status span:last-child {
+  .catalog-status > span:last-child {
     width: 100%;
     margin-left: 0;
   }

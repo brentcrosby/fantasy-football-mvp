@@ -61,7 +61,15 @@ export function RosterEditor({
         <div className="catalog-status">
           <strong>{metadata.source === "LIVE" ? `${metadata.season} Week ${metadata.week}` : "Sample data"}</strong>
           <span>{metadata.sourceLabel}</span>
-          {metadata.updatedAt && <span>Updated {formatUpdatedAt(metadata.updatedAt)}</span>}
+          {metadata.source === "LIVE" && (
+            <span className={`data-freshness data-freshness-${metadata.freshness.status.toLowerCase()}`}>
+              {freshnessLabel(metadata.freshness.status)}
+            </span>
+          )}
+          {metadata.syncedAt && <span>Synced {formatUpdatedAt(metadata.syncedAt)}</span>}
+          {metadata.freshness.lastAttemptStatus === "FAILED" && (
+            <span className="data-refresh-warning">Latest refresh failed; showing the previous catalog.</span>
+          )}
         </div>
       )}
 
@@ -177,7 +185,20 @@ export function RosterEditor({
 }
 
 function formatUpdatedAt(value: string): string {
-  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "UTC" }).format(new Date(value));
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: "UTC",
+    timeZoneName: "short"
+  }).format(new Date(value));
+}
+
+function freshnessLabel(status: PlayerCatalogMetadata["freshness"]["status"]): string {
+  if (status === "FRESH") return "Data current";
+  if (status === "STALE") return "Data may be stale";
+  return "Data unavailable";
 }
 
 function statusLabel(status: Player["injuryStatus"]): string {
