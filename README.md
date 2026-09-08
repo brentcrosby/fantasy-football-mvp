@@ -106,7 +106,7 @@ The included GitHub Actions workflow requests a refresh every six hours and can 
 2. Add the same `DATA_SYNC_CRON_SECRET` to the GitHub repository's Actions secrets.
 3. Add `PLAYER_DATA_SYNC_URL` to GitHub Actions secrets with `https://fantasy-football-lineup-assistant.onrender.com/api/internal/player-data-sync` (substitute the actual deployed hostname if it changes).
 
-GitHub's scheduled workflows can be delayed, so this is a best-effort portfolio deployment schedule rather than a real-time production job. The protected endpoint accepts only the matching bearer secret and has a daily request limit.
+GitHub's scheduled workflows can be delayed, so this is a best-effort portfolio deployment schedule rather than a real-time production job. The protected endpoint accepts only the matching refresh secret and has a daily request limit.
 
 ## Sleeper League Import
 
