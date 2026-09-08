@@ -5,6 +5,7 @@ import { after, before, test } from "node:test";
 
 import type {
   AuthenticatedUser,
+  LeagueOverview,
   PersistedFantasyTeam,
   RecommendationReport,
   SavedWeeklyReport,
@@ -113,6 +114,7 @@ test("requires authentication for team routes", async () => {
   assert.equal((await apiRequest("/api/teams/unowned/reports", { cookie: null })).status, 401);
   assert.equal((await apiRequest("/api/sleeper/leagues?username=testcoach", { cookie: null })).status, 401);
   assert.equal((await apiRequest("/api/teams/unowned/waivers", { cookie: null })).status, 401);
+  assert.equal((await apiRequest("/api/teams/unowned/league", { cookie: null })).status, 401);
   assert.equal(
     (await apiRequest("/api/teams/unowned/reports", { method: "POST", body: { week: 1 }, cookie: null })).status,
     401
@@ -565,11 +567,38 @@ test("previews, imports, and refreshes an owned Sleeper roster", async () => {
       "/v1/user/sleeper-user-1/leagues/nfl/2026": [sleeperLeagueFixture()],
       "/v1/league/123456789": sleeperLeagueFixture(),
       "/v1/league/123456789/rosters": [
-        { roster_id: 7, owner_id: "sleeper-user-1", players: ["4984", "9221"] },
-        { roster_id: 8, owner_id: "sleeper-user-2", players: ["3333"] }
+        {
+          roster_id: 7,
+          owner_id: "sleeper-user-1",
+          players: ["4984", "9221"],
+          starters: ["4984", "9221"],
+          settings: { wins: 3, losses: 1, fpts: 420, fpts_decimal: 25, fpts_against: 390 }
+        },
+        {
+          roster_id: 8,
+          owner_id: "sleeper-user-2",
+          players: ["3333"],
+          starters: ["3333"],
+          settings: { wins: 2, losses: 2, fpts: 405, fpts_decimal: 5, fpts_against: 410 }
+        }
       ],
       "/v1/league/123456789/users": [
-        { user_id: "sleeper-user-1", metadata: { team_name: `${testNamePrefix} Sleeper Team` } }
+        {
+          user_id: "sleeper-user-1",
+          username: "testcoach",
+          display_name: "Test Coach",
+          metadata: { team_name: `${testNamePrefix} Sleeper Team` }
+        },
+        {
+          user_id: "sleeper-user-2",
+          username: "rival",
+          display_name: "Rival Manager",
+          metadata: { team_name: "Rival Team" }
+        }
+      ],
+      "/v1/league/123456789/matchups/1": [
+        { roster_id: 7, matchup_id: 4, points: 21.5 },
+        { roster_id: 8, matchup_id: 4, points: 18.2 }
       ]
     };
     const payload = fixtures[request.url ?? ""];
@@ -648,8 +677,18 @@ test("previews, imports, and refreshes an owned Sleeper roster", async () => {
     assert.equal(waiverReport.recommendations[0]?.dropCandidate, null);
     assert.equal(waiverReport.recommendations[0]?.priority, "STARTER_UPGRADE");
 
+    const leagueResponse = await apiRequest(`/api/teams/${importedTeam.id}/league`);
+    assert.equal(leagueResponse.status, 200);
+    const leagueOverview = (leagueResponse.body as { overview: LeagueOverview }).overview;
+    assert.equal(leagueOverview.league.name, "Integration League");
+    assert.equal(leagueOverview.teams.length, 2);
+    assert.equal(leagueOverview.teams.find((team) => team.isUserTeam)?.teamName, `${testNamePrefix} Sleeper Team`);
+    assert.equal(leagueOverview.matchup?.opponentRosterId, 8);
+    assert.equal(leagueOverview.matchup?.projectedMargin, 2.8);
+
     const otherUser = await createAccount("waiver-isolation");
     assert.equal((await apiRequest(`/api/teams/${importedTeam.id}/waivers`, { cookie: otherUser.cookie })).status, 404);
+    assert.equal((await apiRequest(`/api/teams/${importedTeam.id}/league`, { cookie: otherUser.cookie })).status, 404);
   } finally {
     if (previousSleeperApiBaseUrl === undefined) {
       delete process.env.SLEEPER_API_BASE_URL;

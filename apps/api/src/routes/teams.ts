@@ -4,13 +4,14 @@ import { Prisma } from "@prisma/client";
 import { buildLineupRecommendation, type RecommendationRequest } from "@fantasy-football/shared";
 
 import { ApiError } from "../lib/apiError.js";
+import { buildLeagueOverview } from "../lib/leagueOverview.js";
 import { teamWithRoster, toPlayerDto, toSavedWeeklyReportDto, toTeamDto } from "../lib/mappers.js";
 import { assertProjectionWeek } from "../lib/playerProjection.js";
 import { prisma } from "../lib/prisma.js";
 import { getAuthenticatedUser, requireAuth } from "../lib/session.js";
 import { buildWaiverReport } from "../lib/waiverRecommendation.js";
 import { saveWeeklyReportRequestSchema, teamIdSchema, teamWriteRequestSchema } from "../lib/validation.js";
-import { loadSleeperLeagueRosteredPlayerIds } from "../services/sleeperLeagueImport.js";
+import { loadSleeperLeagueContext, loadSleeperLeagueRosteredPlayerIds } from "../services/sleeperLeagueImport.js";
 
 export const teamsRouter = Router();
 teamsRouter.use(requireAuth);
@@ -21,6 +22,14 @@ const waiverRateLimit = rateLimit({
   standardHeaders: "draft-8",
   legacyHeaders: false,
   message: { error: "Too many waiver scans. Try again later." }
+});
+
+const leagueRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 60,
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+  message: { error: "Too many league refreshes. Try again later." }
 });
 
 teamsRouter.get("/", async (_request, response) => {
@@ -124,6 +133,61 @@ teamsRouter.get<{ teamId: string }>("/:teamId/waivers", waiverRateLimit, async (
   });
 
   response.json({ report });
+});
+
+teamsRouter.get<{ teamId: string }>("/:teamId/league", leagueRateLimit, async (request, response) => {
+  const user = getAuthenticatedUser(response);
+  const teamId = parseTeamId(request.params.teamId, response);
+
+  if (!teamId) return;
+
+  const team = await prisma.fantasyTeam.findFirst({
+    where: { id: teamId, userId: user.id },
+    include: teamWithRoster
+  });
+
+  if (!team) {
+    throw new ApiError(404, "Team not found.");
+  }
+
+  if (!team.sleeperLeagueId || team.sleeperRosterId === null) {
+    throw new ApiError(422, "Import this team from Sleeper before loading league details.");
+  }
+
+  const sync = await prisma.playerDataSync.findUnique({ where: { id: "weekly-player-data" } });
+
+  if (!sync) {
+    throw new ApiError(503, "Current player projections are unavailable. Sync player data before loading the league.");
+  }
+
+  const [context, currentPlayers] = await Promise.all([
+    loadSleeperLeagueContext(team.sleeperLeagueId, sync.week),
+    prisma.player.findMany({
+      where: {
+        dataSource: "LIVE",
+        season: sync.season,
+        projectionWeek: sync.week
+      }
+    })
+  ]);
+  const playersByExternalId = new Map(
+    currentPlayers.flatMap((player) => (player.externalId ? [[player.externalId, toPlayerDto(player)] as const] : []))
+  );
+  const scoringRules = readScoringRules(team.scoringRules);
+  const overview = buildLeagueOverview({
+    context,
+    week: sync.week,
+    userRosterId: team.sleeperRosterId,
+    settings: {
+      scoringFormat: team.scoringFormat,
+      lineupSlots: team.lineupSlots,
+      ...(scoringRules ? { scoringRules } : {})
+    },
+    playersByExternalId,
+    projectionSource: sync.source
+  });
+
+  response.json({ overview });
 });
 
 teamsRouter.get("/:teamId/reports", async (request, response) => {

@@ -12,7 +12,9 @@ Fantasy Football Lineup Assistant is a full-stack MVP for managing a fantasy ros
 - Generate a weekly lineup report with starters, bench players, risk notes, and position needs.
 - Save immutable weekly report snapshots and reopen them from team history.
 - Scan a connected Sleeper league for unrostered players and rank lineup or depth upgrades.
-- Keep the first recommendation engine rule-based and explainable before adding any predictive model.
+- Review the current Sleeper matchup, projected position edges, standings, and every league roster.
+- Find possible trade conversations based on mutual roster needs and players outside projected starting lineups.
+- Compare provider projections with an experimental model trained and evaluated on real historical NFL results.
 
 ## Tech Stack
 
@@ -112,6 +114,37 @@ Sleeper-connected teams can scan every roster in their league to identify player
 
 The scan is read-only. It does not submit claims or modify the Sleeper league, and manual teams must first be imported from Sleeper so league availability can be verified.
 
+The recommendation strategy treats QB as a required starter but not a routine depth target in one-QB leagues. A quarterback is suggested only when the starting slot is unfilled or a free agent raises projected starter output by at least two points. RB, WR, and TE remain eligible for depth recommendations; K and DST do not receive depth recommendations.
+
+## League Center
+
+The League tab loads the connected Sleeper league's current matchup, live points, standings, managers, team names, and rosters. Each roster is run through the same availability and lineup engine as the user's team, producing comparable projected totals and aggregated QB, RB, WR, TE, FLEX, K, and DST matchup edges.
+
+Sleeper players missing from the current projection catalog are counted and disclosed rather than assigned invented values. The view is read-only and can be refreshed without changing the source league.
+
+The Trade Finder in the League tab looks for players on another team's projected bench who address a starting-lineup weakness or meaningful RB/WR depth need. It only shows an idea when the other roster also has a positional need that one of the user's bench players could address. Missing backup QB or TE depth does not create a recommendation by itself.
+
+Trade results are starting points for a conversation, not fair-value judgments or exact package recommendations. Provider projections drive the roster-fit comparison. In PPR leagues, the experimental model can add a secondary buy-low signal, but it does not override the provider projection or claim to predict rest-of-season value.
+
+## Experimental Projection Model
+
+The repository includes a reproducible ridge-regression training pipeline in `ml/`. It downloads nflverse weekly player stats, trains on the 2021-2024 regular seasons, and evaluates once on the held-out 2025 season. Features use only information available before the predicted game: recent PPR output, attempts, carries, targets, receptions, touchdowns, trend, sample size, and position.
+
+On 4,325 held-out player-games, the checked-in model artifact recorded a 4.6067 MAE and 6.3348 RMSE, compared with 4.8428 MAE and 6.8538 RMSE for a three-game rolling-average baseline. The result supports using the model as an experimental comparison, but it does not establish an advantage over the current FantasyPros-derived provider feed.
+
+The live sync maps Sleeper players to nflverse GSIS IDs, calculates model forecasts when at least three prior games exist, and stores provider/model observations for later outcome comparison. The UI labels these forecasts as experimental PPR values and continues using provider projections for lineup and waiver decisions until collected head-to-head results support a change.
+
+Reproduce the artifact:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r ml/requirements.txt
+npm run ml:train
+```
+
+Historical data comes from the [nflverse data releases](https://github.com/nflverse/nflverse-data) under CC-BY-4.0. Cross-provider GSIS and Sleeper mappings come from the [DynastyProcess data repository](https://github.com/dynastyprocess/data).
+
 Existing teams created before the authentication migration are preserved as unowned legacy records. Authenticated team routes expose only teams owned by the current account.
 
 ## Database Commands
@@ -143,7 +176,7 @@ The cleanup guard refuses to run against the development `public` schema. Tests 
 
 ## Current Status
 
-The application is deployed on Render with secure cookie sessions, user-owned PostgreSQL teams, current weekly NFL player data, Sleeper roster imports with full scoring-rule persistence, a deterministic scoring and lineup engine, league-aware waiver recommendations, immutable weekly report history, and automated CI. A licensed component-stat projection feed, transaction tracking, and a trained prediction model remain later features.
+The application is deployed on Render with secure cookie sessions, user-owned PostgreSQL teams, current weekly NFL player data, Sleeper roster imports with full scoring-rule persistence, a deterministic scoring and lineup engine, matchup and league roster analysis, league-aware waiver recommendations, an evaluated experimental projection model, immutable weekly report history, and automated CI. A licensed component-stat projection feed and transaction tracking remain later features.
 
 Production must use HTTPS so secure session cookies can be sent. The included deployment serves the frontend and API from one origin; configure `WEB_ORIGIN` only if they are hosted separately.
 

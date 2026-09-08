@@ -1,6 +1,7 @@
 import type {
   AuthCredentials,
   AuthenticatedUser,
+  LeagueOverview,
   PersistedFantasyTeam,
   PlayerCatalog,
   RecommendationApiRequest,
@@ -176,6 +177,22 @@ export async function fetchWaiverReport(teamId: string): Promise<WaiverReport> {
   }
 
   return payload.report;
+}
+
+export async function fetchLeagueOverview(teamId: string): Promise<LeagueOverview> {
+  const response = await apiFetch(`/api/teams/${encodeURIComponent(teamId)}/league`);
+
+  if (!response.ok) {
+    throw await buildRequestError(response, "Could not load the Sleeper league.");
+  }
+
+  const payload = (await response.json()) as { overview?: LeagueOverview };
+
+  if (!payload.overview) {
+    throw new Error("The league response was missing the overview.");
+  }
+
+  return payload.overview;
 }
 
 export async function fetchWeeklyReports(teamId: string): Promise<SavedWeeklyReport[]> {

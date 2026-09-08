@@ -52,26 +52,46 @@ model Session {
 }
 
 model Player {
-  id                String             @id
-  name              String             @db.VarChar(100)
-  position          Position
-  nflTeam           String             @db.VarChar(3)
-  byeWeek           Int
-  injuryStatus      InjuryStatus       @default(HEALTHY)
-  projectedPoints   Float
-  hasProjection     Boolean            @default(true)
-  projectionStats   Json?
-  projectionSource  String?            @db.VarChar(150)
-  targetShare       Float?
-  dataSource        PlayerDataSource   @default(SEED)
-  externalId        String?            @db.VarChar(50)
-  season            Int?
-  projectionWeek    Int?
-  dataUpdatedAt     DateTime?
-  rosterMemberships RosterMembership[]
+  id                     String                  @id
+  name                   String                  @db.VarChar(100)
+  position               Position
+  nflTeam                String                  @db.VarChar(3)
+  byeWeek                Int
+  injuryStatus           InjuryStatus            @default(HEALTHY)
+  projectedPoints        Float
+  hasProjection          Boolean                 @default(true)
+  projectionStats        Json?
+  projectionSource       String?                 @db.VarChar(150)
+  experimentalProjection Json?
+  targetShare            Float?
+  dataSource             PlayerDataSource        @default(SEED)
+  externalId             String?                 @db.VarChar(50)
+  gsisId                 String?                 @db.VarChar(20)
+  season                 Int?
+  projectionWeek         Int?
+  dataUpdatedAt          DateTime?
+  rosterMemberships      RosterMembership[]
+  projectionObservations ProjectionObservation[]
 
   @@unique([dataSource, externalId])
   @@index([dataSource, season, projectionWeek])
+}
+
+model ProjectionObservation {
+  id                      String    @id @default(cuid())
+  playerId                String
+  season                  Int
+  week                    Int
+  providerProjectedPoints Float
+  modelProjectedPoints    Float?
+  actualPprPoints         Float?
+  capturedAt              DateTime  @default(now())
+  resolvedAt              DateTime?
+  player                  Player    @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@unique([playerId, season, week])
+  @@index([season, week])
+  @@index([actualPprPoints])
 }
 
 model PlayerDataSync {

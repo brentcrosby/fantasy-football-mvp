@@ -5,6 +5,7 @@ import { ApiError } from "../lib/apiError.js";
 import {
   findSleeperLeagues,
   loadSleeperImportCandidate,
+  loadSleeperLeagueContext,
   loadSleeperLeagueRosteredPlayerIds,
   translateLineupSlots,
   translateScoringFormat
@@ -73,6 +74,50 @@ test("collects unique rostered players from every team in a Sleeper league", asy
   });
 
   assert.deepEqual(await loadSleeperLeagueRosteredPlayerIds("123456789", fetcher), ["1111", "2222", "3333"]);
+});
+
+test("loads standings, managers, rosters, and the selected week's matchups", async () => {
+  const fetcher = fixtureFetch({
+    "/league/123456789": league,
+    "/league/123456789/rosters": [
+      {
+        roster_id: 7,
+        owner_id: "user-1",
+        players: ["4984", "9221"],
+        starters: ["4984"],
+        settings: { wins: 3, losses: 1, ties: 0, fpts: 412, fpts_decimal: 45, fpts_against: 390, fpts_against_decimal: 5 }
+      },
+      { roster_id: 8, owner_id: "user-2", players: ["3333"], starters: ["3333"], settings: { wins: 2, losses: 2 } }
+    ],
+    "/league/123456789/users": [
+      { user_id: "user-1", username: "testcoach", display_name: "Test Coach", metadata: { team_name: "Fourth and Long" } },
+      { user_id: "user-2", username: "rival", display_name: "Rival Manager", metadata: {} }
+    ],
+    "/league/123456789/matchups/4": [
+      { roster_id: 7, matchup_id: 3, points: 42.1 },
+      { roster_id: 8, matchup_id: 3, points: 38.6 }
+    ]
+  });
+
+  const context = await loadSleeperLeagueContext("123456789", 4, fetcher);
+
+  assert.equal(context.league.name, "Sunday League");
+  assert.deepEqual(context.rosters[0], {
+    rosterId: 7,
+    ownerId: "user-1",
+    ownerName: "Test Coach",
+    teamName: "Fourth and Long",
+    playerIds: ["4984", "9221"],
+    starterIds: ["4984"],
+    wins: 3,
+    losses: 1,
+    ties: 0,
+    pointsFor: 412.45,
+    pointsAgainst: 390.05,
+    matchupId: 3,
+    matchupPoints: 42.1
+  });
+  assert.equal(context.rosters[1]?.teamName, "Team 8");
 });
 
 test("flags unsupported lineup slots and represents nonstandard reception scoring as custom", () => {

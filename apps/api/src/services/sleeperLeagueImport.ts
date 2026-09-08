@@ -55,13 +55,28 @@ const sleeperRosterSchema = z
   .object({
     roster_id: z.coerce.number().int().positive(),
     owner_id: z.string().nullish(),
-    players: z.array(z.string()).max(100).nullish()
+    players: z.array(z.string()).max(100).nullish(),
+    starters: z.array(z.string()).max(40).nullish(),
+    settings: z
+      .object({
+        wins: z.coerce.number().int().nonnegative().optional(),
+        losses: z.coerce.number().int().nonnegative().optional(),
+        ties: z.coerce.number().int().nonnegative().optional(),
+        fpts: z.coerce.number().optional(),
+        fpts_decimal: z.coerce.number().optional(),
+        fpts_against: z.coerce.number().optional(),
+        fpts_against_decimal: z.coerce.number().optional()
+      })
+      .passthrough()
+      .nullish()
   })
   .passthrough();
 
 const sleeperLeagueUserSchema = z
   .object({
     user_id: z.string(),
+    username: z.string().nullish(),
+    display_name: z.string().nullish(),
     metadata: z
       .object({
         team_name: z.string().nullish()
@@ -70,6 +85,35 @@ const sleeperLeagueUserSchema = z
       .nullish()
   })
   .passthrough();
+
+const sleeperMatchupSchema = z
+  .object({
+    roster_id: z.coerce.number().int().positive(),
+    matchup_id: z.coerce.number().int().positive().nullish(),
+    points: z.coerce.number().nullish()
+  })
+  .passthrough();
+
+export interface SleeperLeagueContextRoster {
+  rosterId: number;
+  ownerId: string | null;
+  ownerName: string;
+  teamName: string;
+  playerIds: string[];
+  starterIds: string[];
+  wins: number;
+  losses: number;
+  ties: number;
+  pointsFor: number;
+  pointsAgainst: number;
+  matchupId: number | null;
+  matchupPoints: number | null;
+}
+
+export interface SleeperLeagueContext {
+  league: SleeperLeagueSummary;
+  rosters: SleeperLeagueContextRoster[];
+}
 
 export interface SleeperImportCandidate {
   user: SleeperUserSummary;
@@ -173,6 +217,52 @@ export async function loadSleeperLeagueRosteredPlayerIds(
   });
 }
 
+export async function loadSleeperLeagueContext(
+  leagueId: string,
+  week: number,
+  fetcher: typeof fetch = fetch
+): Promise<SleeperLeagueContext> {
+  return withSleeperErrors(async () => {
+    const [leaguePayload, rostersPayload, usersPayload, matchupsPayload] = await Promise.all([
+      fetchJson(fetcher, `/league/${encodeURIComponent(leagueId)}`),
+      fetchJson(fetcher, `/league/${encodeURIComponent(leagueId)}/rosters`),
+      fetchJson(fetcher, `/league/${encodeURIComponent(leagueId)}/users`),
+      fetchJson(fetcher, `/league/${encodeURIComponent(leagueId)}/matchups/${week}`)
+    ]);
+    const league = parseProviderPayload(sleeperLeagueSchema, leaguePayload);
+    const rosters = parseProviderPayload(z.array(sleeperRosterSchema).max(100), rostersPayload);
+    const users = parseProviderPayload(z.array(sleeperLeagueUserSchema).max(100), usersPayload);
+    const matchups = parseProviderPayload(z.array(sleeperMatchupSchema).max(100), matchupsPayload ?? []);
+    const userById = new Map(users.map((user) => [user.user_id, user]));
+    const matchupByRosterId = new Map(matchups.map((matchup) => [matchup.roster_id, matchup]));
+
+    return {
+      league: toLeagueSummary(league),
+      rosters: rosters.map((roster) => {
+        const owner = roster.owner_id ? userById.get(roster.owner_id) : undefined;
+        const matchup = matchupByRosterId.get(roster.roster_id);
+
+        return {
+          rosterId: roster.roster_id,
+          ownerId: roster.owner_id ?? null,
+          ownerName:
+            owner?.display_name?.trim() || owner?.username?.trim() || `Manager ${roster.roster_id}`,
+          teamName: owner?.metadata?.team_name?.trim() || `Team ${roster.roster_id}`,
+          playerIds: [...new Set(roster.players ?? [])],
+          starterIds: [...new Set((roster.starters ?? []).filter((id) => id !== "0"))],
+          wins: roster.settings?.wins ?? 0,
+          losses: roster.settings?.losses ?? 0,
+          ties: roster.settings?.ties ?? 0,
+          pointsFor: sleeperDecimal(roster.settings?.fpts, roster.settings?.fpts_decimal),
+          pointsAgainst: sleeperDecimal(roster.settings?.fpts_against, roster.settings?.fpts_against_decimal),
+          matchupId: matchup?.matchup_id ?? null,
+          matchupPoints: matchup?.points ?? null
+        };
+      })
+    };
+  });
+}
+
 export function translateLineupSlots(rosterPositions: string[]): {
   lineupSlots: LineupSlot[];
   unsupportedLineupSlots: string[];
@@ -257,4 +347,8 @@ async function fetchJson(fetcher: typeof fetch, path: string): Promise<unknown> 
 
 function sleeperApiBaseUrl(): string {
   return (process.env.SLEEPER_API_BASE_URL ?? "https://api.sleeper.app/v1").replace(/\/$/, "");
+}
+
+function sleeperDecimal(whole: number | undefined, decimal: number | undefined): number {
+  return Math.round(((whole ?? 0) + (decimal ?? 0) / 100) * 100) / 100;
 }

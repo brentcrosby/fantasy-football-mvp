@@ -1,6 +1,7 @@
 import { Router } from "express";
 
 import { toPlayerDto } from "../lib/mappers.js";
+import { projectionModelSummary } from "../lib/experimentalProjection.js";
 import { prisma } from "../lib/prisma.js";
 
 export const playersRouter = Router();
@@ -33,7 +34,8 @@ playersRouter.get("/", async (_request, response) => {
           sourceLabel: sync!.source,
           season: sync!.season,
           week: sync!.week,
-          updatedAt: sync!.sourceUpdatedAt.toISOString()
+          updatedAt: sync!.sourceUpdatedAt.toISOString(),
+          model: projectionModelSummary()
         }
       : {
           source: "SAMPLE",
