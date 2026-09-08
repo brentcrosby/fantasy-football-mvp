@@ -19,7 +19,7 @@ const syncRateLimit = rateLimit({
 playerDataSyncRouter.post("/player-data", (request, response, next) => {
   const secret = process.env.DATA_SYNC_CRON_SECRET;
 
-  if (!secret || !hasValidSyncSecret(request.header("authorization"), secret)) {
+  if (!secret || !hasValidSyncSecret(request.header("authorization"), request.header("x-player-data-sync-secret"), secret)) {
     response.status(404).json({ error: "Route not found." });
     return;
   }
@@ -30,8 +30,13 @@ playerDataSyncRouter.post("/player-data", (request, response, next) => {
   response.json({ result });
 });
 
-export function hasValidSyncSecret(authorization: string | undefined, secret: string): boolean {
-  const token = authorization?.startsWith("Bearer ") ? authorization.slice("Bearer ".length) : "";
+export function hasValidSyncSecret(
+  authorization: string | undefined,
+  playerDataSyncSecret: string | undefined,
+  secret: string
+): boolean {
+  const bearerToken = authorization?.startsWith("Bearer ") ? authorization.slice("Bearer ".length) : "";
+  const token = playerDataSyncSecret ?? bearerToken;
   const expected = Buffer.from(secret);
   const supplied = Buffer.from(token);
 

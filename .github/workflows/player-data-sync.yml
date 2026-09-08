@@ -19,5 +19,5 @@ jobs:
         run: >-
           curl --fail-with-body --retry 2 --retry-all-errors --connect-timeout 20 --max-time 120
           --request POST
-          --header "Authorization: Bearer ${DATA_SYNC_CRON_SECRET}"
+          --header "X-Player-Data-Sync-Secret: ${DATA_SYNC_CRON_SECRET}"
           "${PLAYER_DATA_SYNC_URL}"
