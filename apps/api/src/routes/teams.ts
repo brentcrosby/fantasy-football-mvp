@@ -1,4 +1,5 @@
 import { Router, type Response } from "express";
+import { rateLimit } from "express-rate-limit";
 import { Prisma } from "@prisma/client";
 import { buildLineupRecommendation, type RecommendationRequest } from "@fantasy-football/shared";
 
@@ -7,10 +8,20 @@ import { teamWithRoster, toPlayerDto, toSavedWeeklyReportDto, toTeamDto } from "
 import { assertProjectionWeek } from "../lib/playerProjection.js";
 import { prisma } from "../lib/prisma.js";
 import { getAuthenticatedUser, requireAuth } from "../lib/session.js";
+import { buildWaiverReport } from "../lib/waiverRecommendation.js";
 import { saveWeeklyReportRequestSchema, teamIdSchema, teamWriteRequestSchema } from "../lib/validation.js";
+import { loadSleeperLeagueRosteredPlayerIds } from "../services/sleeperLeagueImport.js";
 
 export const teamsRouter = Router();
 teamsRouter.use(requireAuth);
+
+const waiverRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 30,
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+  message: { error: "Too many waiver scans. Try again later." }
+});
 
 teamsRouter.get("/", async (_request, response) => {
   const user = getAuthenticatedUser(response);
@@ -54,6 +65,65 @@ teamsRouter.post("/", async (request, response) => {
   });
 
   response.status(201).json({ team: toTeamDto(team) });
+});
+
+teamsRouter.get<{ teamId: string }>("/:teamId/waivers", waiverRateLimit, async (request, response) => {
+  const user = getAuthenticatedUser(response);
+  const teamId = parseTeamId(request.params.teamId, response);
+
+  if (!teamId) return;
+
+  const team = await prisma.fantasyTeam.findFirst({
+    where: { id: teamId, userId: user.id },
+    include: teamWithRoster
+  });
+
+  if (!team) {
+    throw new ApiError(404, "Team not found.");
+  }
+
+  if (!team.sleeperLeagueId) {
+    throw new ApiError(422, "Import this team from Sleeper before scanning its waiver wire.");
+  }
+
+  const sync = await prisma.playerDataSync.findUnique({ where: { id: "weekly-player-data" } });
+
+  if (!sync) {
+    throw new ApiError(503, "Current player projections are unavailable. Sync player data before scanning waivers.");
+  }
+
+  const [leagueRosteredPlayerIds, currentPlayers] = await Promise.all([
+    loadSleeperLeagueRosteredPlayerIds(team.sleeperLeagueId),
+    prisma.player.findMany({
+      where: {
+        dataSource: "LIVE",
+        season: sync.season,
+        projectionWeek: sync.week,
+        hasProjection: true
+      }
+    })
+  ]);
+  const leagueRosteredIds = new Set(leagueRosteredPlayerIds);
+  const currentRosterIds = new Set(team.rosterMemberships.map(({ playerId }) => playerId));
+  const availablePlayers = currentPlayers
+    .filter((player) => player.externalId && !leagueRosteredIds.has(player.externalId))
+    .filter((player) => !currentRosterIds.has(player.id))
+    .map(toPlayerDto);
+  const scoringRules = readScoringRules(team.scoringRules);
+  const report = buildWaiverReport({
+    week: sync.week,
+    leagueId: team.sleeperLeagueId,
+    settings: {
+      scoringFormat: team.scoringFormat,
+      lineupSlots: team.lineupSlots,
+      ...(scoringRules ? { scoringRules } : {})
+    },
+    roster: team.rosterMemberships.map(({ player }) => ({ player: toPlayerDto(player) })),
+    availablePlayers,
+    rosteredPlayerCount: leagueRosteredIds.size
+  });
+
+  response.json({ report });
 });
 
 teamsRouter.get("/:teamId/reports", async (request, response) => {

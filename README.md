@@ -11,6 +11,7 @@ Fantasy Football Lineup Assistant is a full-stack MVP for managing a fantasy ros
 - Store player position, NFL team, bye week, injury status, weekly projections, and projection provenance.
 - Generate a weekly lineup report with starters, bench players, risk notes, and position needs.
 - Save immutable weekly report snapshots and reopen them from team history.
+- Scan a connected Sleeper league for unrostered players and rank lineup or depth upgrades.
 - Keep the first recommendation engine rule-based and explainable before adding any predictive model.
 
 ## Tech Stack
@@ -105,6 +106,12 @@ The recommendation engine can score projected stat components with the saved lea
 
 The current DynastyProcess weekly feed exposes only a finished point total, not passing, rushing, receiving, kicking, or defense projection components. Those totals are therefore kept unchanged and labeled as provider projections in the report. The application does not estimate or reverse-engineer stat lines from a total. Connecting an authorized component-stat feed will activate league-scored projections without changing the recommendation contract or stored Sleeper settings.
 
+## Waiver Recommendations
+
+Sleeper-connected teams can scan every roster in their league to identify players who are actually unrostered. The waiver engine compares those projected free agents against the saved team, prioritizes starting-lineup gains and missing depth, and suggests a same-position drop only when that player is outside the resulting recommended lineup.
+
+The scan is read-only. It does not submit claims or modify the Sleeper league, and manual teams must first be imported from Sleeper so league availability can be verified.
+
 Existing teams created before the authentication migration are preserved as unowned legacy records. Authenticated team routes expose only teams owned by the current account.
 
 ## Database Commands
@@ -136,7 +143,7 @@ The cleanup guard refuses to run against the development `public` schema. Tests 
 
 ## Current Status
 
-The application is deployed on Render with secure cookie sessions, user-owned PostgreSQL teams, current weekly NFL player data, Sleeper roster imports with full scoring-rule persistence, a deterministic scoring and lineup engine, immutable weekly report history, and automated CI. A licensed component-stat projection feed, waiver analysis, and a trained prediction model remain later features.
+The application is deployed on Render with secure cookie sessions, user-owned PostgreSQL teams, current weekly NFL player data, Sleeper roster imports with full scoring-rule persistence, a deterministic scoring and lineup engine, league-aware waiver recommendations, immutable weekly report history, and automated CI. A licensed component-stat projection feed, transaction tracking, and a trained prediction model remain later features.
 
 Production must use HTTPS so secure session cookies can be sent. The included deployment serves the frontend and API from one origin; configure `WEB_ORIGIN` only if they are hosted separately.
 

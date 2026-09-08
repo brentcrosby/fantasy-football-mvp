@@ -10,7 +10,8 @@ import type {
   SleeperImportPreview,
   SleeperImportRequest,
   SleeperLeagueLookup,
-  TeamWriteRequest
+  TeamWriteRequest,
+  WaiverReport
 } from "@fantasy-football/shared";
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.PROD ? "" : "http://localhost:4000");
@@ -156,6 +157,22 @@ export async function generateRecommendation(request: RecommendationApiRequest):
 
   if (!payload.report) {
     throw new Error("The recommendation response was missing the report.");
+  }
+
+  return payload.report;
+}
+
+export async function fetchWaiverReport(teamId: string): Promise<WaiverReport> {
+  const response = await apiFetch(`/api/teams/${encodeURIComponent(teamId)}/waivers`);
+
+  if (!response.ok) {
+    throw await buildRequestError(response, "Could not scan the Sleeper waiver wire.");
+  }
+
+  const payload = (await response.json()) as { report?: WaiverReport };
+
+  if (!payload.report) {
+    throw new Error("The waiver response was missing the report.");
   }
 
   return payload.report;

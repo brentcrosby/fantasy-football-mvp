@@ -171,6 +171,26 @@ export interface SaveWeeklyReportRequest {
   week: number;
 }
 
+export type WaiverRecommendationPriority = "STARTER_UPGRADE" | "DEPTH_UPGRADE" | "DEPTH_NEED";
+
+export interface WaiverRecommendation {
+  player: Player;
+  dropCandidate: Player | null;
+  priority: WaiverRecommendationPriority;
+  lineupGain: number;
+  projectionGain: number | null;
+  reason: string;
+}
+
+export interface WaiverReport {
+  week: number;
+  leagueId: string;
+  rosteredPlayerCount: number;
+  availablePlayerCount: number;
+  recommendations: WaiverRecommendation[];
+  summary: string;
+}
+
 const FLEX_POSITIONS: Position[] = ["RB", "WR", "TE"];
 const DEPTH_POSITIONS: Position[] = ["QB", "RB", "WR", "TE"];
 const UNAVAILABLE_STATUSES: InjuryStatus[] = ["OUT", "IR", "SUSPENDED"];

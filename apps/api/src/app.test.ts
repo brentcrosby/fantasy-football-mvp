@@ -8,7 +8,8 @@ import type {
   PersistedFantasyTeam,
   RecommendationReport,
   SavedWeeklyReport,
-  TeamWriteRequest
+  TeamWriteRequest,
+  WaiverReport
 } from "@fantasy-football/shared";
 
 import { app } from "./app.js";
@@ -19,7 +20,13 @@ import { assertTestDatabaseUrl } from "./lib/testDatabaseGuard.js";
 const testNamePrefix = "[integration]";
 const testEmailPrefix = "integration-test-";
 const testPassword = "test-password-123";
-const sleeperTestPlayerIds = ["integration-sleeper-qb", "integration-sleeper-rb"];
+const sleeperImportedPlayerIds = ["integration-sleeper-qb", "integration-sleeper-rb"];
+const sleeperTestPlayerIds = [
+  "integration-sleeper-qb",
+  "integration-sleeper-rb",
+  "integration-sleeper-owned-rb",
+  "integration-sleeper-waiver-rb"
+];
 const defaultSettings = {
   scoringFormat: "HALF_PPR" as const,
   lineupSlots: ["QB", "RB", "RB", "WR", "WR", "TE", "FLEX", "K", "DST"] as const
@@ -105,6 +112,7 @@ test("requires authentication for team routes", async () => {
   assert.equal(create.status, 401);
   assert.equal((await apiRequest("/api/teams/unowned/reports", { cookie: null })).status, 401);
   assert.equal((await apiRequest("/api/sleeper/leagues?username=testcoach", { cookie: null })).status, 401);
+  assert.equal((await apiRequest("/api/teams/unowned/waivers", { cookie: null })).status, 401);
   assert.equal(
     (await apiRequest("/api/teams/unowned/reports", { method: "POST", body: { week: 1 }, cookie: null })).status,
     401
@@ -538,6 +546,17 @@ test("validates weekly report requests and rejects empty rosters", async () => {
   assert.equal((emptyRosterResponse.body as { error: string }).error, "Add at least one player before saving a weekly report.");
 });
 
+test("requires a Sleeper-connected team before scanning waivers", async () => {
+  const team = await createTeam("manual waiver team", ["p1"]);
+  const response = await apiRequest(`/api/teams/${team.id}/waivers`);
+
+  assert.equal(response.status, 422);
+  assert.equal(
+    (response.body as { error: string }).error,
+    "Import this team from Sleeper before scanning its waiver wire."
+  );
+});
+
 test("previews, imports, and refreshes an owned Sleeper roster", async () => {
   const sleeperServer = createServer((request, response) => {
     const fixtures: Record<string, unknown> = {
@@ -546,7 +565,8 @@ test("previews, imports, and refreshes an owned Sleeper roster", async () => {
       "/v1/user/sleeper-user-1/leagues/nfl/2026": [sleeperLeagueFixture()],
       "/v1/league/123456789": sleeperLeagueFixture(),
       "/v1/league/123456789/rosters": [
-        { roster_id: 7, owner_id: "sleeper-user-1", players: ["4984", "9221"] }
+        { roster_id: 7, owner_id: "sleeper-user-1", players: ["4984", "9221"] },
+        { roster_id: 8, owner_id: "sleeper-user-2", players: ["3333"] }
       ],
       "/v1/league/123456789/users": [
         { user_id: "sleeper-user-1", metadata: { team_name: `${testNamePrefix} Sleeper Team` } }
@@ -572,16 +592,18 @@ test("previews, imports, and refreshes an owned Sleeper roster", async () => {
         season: 2026,
         week: 1,
         source: "Integration fixtures",
-        recordCount: 2,
+        recordCount: 4,
         sourceUpdatedAt: new Date("2026-09-07T00:00:00.000Z"),
         syncedAt: new Date("2026-09-07T00:00:00.000Z")
       },
-      update: { season: 2026, week: 1, recordCount: 2 }
+      update: { season: 2026, week: 1, recordCount: 4 }
     });
     await prisma.player.createMany({
       data: [
         sleeperPlayerFixture("integration-sleeper-qb", "4984", "Josh Allen", "QB", 19.8),
-        sleeperPlayerFixture("integration-sleeper-rb", "9221", "Jahmyr Gibbs", "RB", 21.6)
+        sleeperPlayerFixture("integration-sleeper-rb", "9221", "Current Running Back", "RB", 8),
+        sleeperPlayerFixture("integration-sleeper-owned-rb", "3333", "Rostered Running Back", "RB", 25),
+        sleeperPlayerFixture("integration-sleeper-waiver-rb", "1111", "Waiver Running Back", "RB", 18)
       ]
     });
 
@@ -608,7 +630,7 @@ test("previews, imports, and refreshes an owned Sleeper roster", async () => {
     assert.equal(importedTeam.sleeper?.username, "testcoach");
     assert.equal(importedTeam.settings.scoringFormat, "HALF_PPR");
     assert.deepEqual(importedTeam.settings.scoringRules, { rec: 0.5, pass_td: 6, bonus_pass_yd_300: 3 });
-    assert.deepEqual(importedTeam.roster.map(({ player }) => player.id).sort(), [...sleeperTestPlayerIds].sort());
+    assert.deepEqual(importedTeam.roster.map(({ player }) => player.id).sort(), [...sleeperImportedPlayerIds].sort());
 
     const refresh = await apiRequest("/api/sleeper/import", {
       method: "POST",
@@ -616,6 +638,18 @@ test("previews, imports, and refreshes an owned Sleeper roster", async () => {
     });
     assert.equal(refresh.status, 200);
     assert.equal((refresh.body as { team: PersistedFantasyTeam }).team.id, importedTeam.id);
+
+    const waiverResponse = await apiRequest(`/api/teams/${importedTeam.id}/waivers`);
+    assert.equal(waiverResponse.status, 200);
+    const waiverReport = (waiverResponse.body as { report: WaiverReport }).report;
+    assert.equal(waiverReport.rosteredPlayerCount, 3);
+    assert.equal(waiverReport.availablePlayerCount, 1);
+    assert.equal(waiverReport.recommendations[0]?.player.id, "integration-sleeper-waiver-rb");
+    assert.equal(waiverReport.recommendations[0]?.dropCandidate, null);
+    assert.equal(waiverReport.recommendations[0]?.priority, "STARTER_UPGRADE");
+
+    const otherUser = await createAccount("waiver-isolation");
+    assert.equal((await apiRequest(`/api/teams/${importedTeam.id}/waivers`, { cookie: otherUser.cookie })).status, 404);
   } finally {
     if (previousSleeperApiBaseUrl === undefined) {
       delete process.env.SLEEPER_API_BASE_URL;

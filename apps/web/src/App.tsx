@@ -1,4 +1,4 @@
-import { useEffect, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import {
   type AuthCredentials,
   type AuthenticatedUser,
@@ -11,7 +11,8 @@ import {
   type SavedWeeklyReport,
   type ScoringFormat,
   type ScoringRules,
-  type TeamWriteRequest
+  type TeamWriteRequest,
+  type WaiverReport
 } from "@fantasy-football/shared";
 
 import { AuthScreen, type AuthMode } from "./components/AuthScreen";
@@ -22,11 +23,13 @@ import { RiskPanel } from "./components/RiskPanel";
 import { RosterEditor } from "./components/RosterEditor";
 import { SleeperImportPanel } from "./components/SleeperImportPanel";
 import { TeamControls, type TeamPersistenceStatus } from "./components/TeamControls";
+import { WaiverPanel } from "./components/WaiverPanel";
 import {
   createTeam,
   fetchCurrentUser,
   fetchPlayers,
   fetchTeams,
+  fetchWaiverReport,
   fetchWeeklyReports,
   generateRecommendation,
   login,
@@ -52,13 +55,14 @@ interface TeamSnapshot {
   rosterIds: string[];
 }
 
-type WorkspaceTab = "TEAM" | "ROSTER" | "LINEUP";
+type WorkspaceTab = "TEAM" | "ROSTER" | "LINEUP" | "WAIVERS";
 
-const WORKSPACE_TAB_ORDER: WorkspaceTab[] = ["TEAM", "ROSTER", "LINEUP"];
+const WORKSPACE_TAB_ORDER: WorkspaceTab[] = ["TEAM", "ROSTER", "LINEUP", "WAIVERS"];
 const WORKSPACE_TAB_IDS: Record<WorkspaceTab, string> = {
   TEAM: "team-tab",
   ROSTER: "roster-tab",
-  LINEUP: "lineup-tab"
+  LINEUP: "lineup-tab",
+  WAIVERS: "waivers-tab"
 };
 
 export function App() {
@@ -96,6 +100,10 @@ export function App() {
   const [authError, setAuthError] = useState<string | null>(null);
   const [loggingOut, setLoggingOut] = useState(false);
   const [activeTab, setActiveTab] = useState<WorkspaceTab>("TEAM");
+  const [waiverReport, setWaiverReport] = useState<WaiverReport | null>(null);
+  const [waiverLoading, setWaiverLoading] = useState(false);
+  const [waiverError, setWaiverError] = useState<string | null>(null);
+  const waiverRequestSequence = useRef(0);
 
   const currentInputs = buildReportInputs(week, scoringFormat, scoringRules, lineupSlots, selectedPlayers);
   const currentTeam = teams.find((team) => team.id === teamId) ?? null;
@@ -238,6 +246,7 @@ export function App() {
       )
     );
     clearReportView();
+    clearWaiverView();
   }
 
   function resetTeamDraft() {
@@ -257,6 +266,7 @@ export function App() {
     setTeamLoadError(null);
     setTeamSaveError(null);
     setLoadErrorBlocksSave(false);
+    clearWaiverView();
     setActiveTab("TEAM");
   }
 
@@ -309,6 +319,7 @@ export function App() {
 
   function addPlayer(player: Player) {
     setTeamSaveError(null);
+    clearWaiverView();
     setSelectedPlayers((currentPlayers) => {
       if (currentPlayers.some((currentPlayer) => currentPlayer.id === player.id)) {
         return currentPlayers;
@@ -320,12 +331,14 @@ export function App() {
 
   function removePlayer(playerId: string) {
     setTeamSaveError(null);
+    clearWaiverView();
     setSelectedPlayers((currentPlayers) => currentPlayers.filter((player) => player.id !== playerId));
   }
 
   function handleTeamNameChange(name: string) {
     setTeamName(name);
     setTeamSaveError(null);
+    clearWaiverView();
   }
 
   function handleScoringFormatChange(nextScoringFormat: ScoringFormat) {
@@ -334,6 +347,7 @@ export function App() {
       setScoringRules(null);
     }
     setTeamSaveError(null);
+    clearWaiverView();
   }
 
   async function handleSaveTeam() {
@@ -418,11 +432,42 @@ export function App() {
     }
   }
 
+  async function handleScanWaivers() {
+    if (!teamId || !currentTeam?.sleeper || isTeamDirty || waiverLoading) return;
+
+    const requestSequence = ++waiverRequestSequence.current;
+    setWaiverLoading(true);
+    setWaiverError(null);
+
+    try {
+      const nextReport = await fetchWaiverReport(teamId);
+
+      if (waiverRequestSequence.current === requestSequence) {
+        setWaiverReport(nextReport);
+      }
+    } catch (apiError) {
+      if (waiverRequestSequence.current === requestSequence) {
+        setWaiverError(errorMessage(apiError, "Something went wrong scanning waivers."));
+      }
+    } finally {
+      if (waiverRequestSequence.current === requestSequence) {
+        setWaiverLoading(false);
+      }
+    }
+  }
+
   function clearReportView() {
     setReport(null);
     setReportInputs(null);
     setViewedSavedReport(null);
     setCurrentReportSavedId(null);
+  }
+
+  function clearWaiverView() {
+    waiverRequestSequence.current += 1;
+    setWaiverReport(null);
+    setWaiverError(null);
+    setWaiverLoading(false);
   }
 
   function handleWorkspaceTabKeyDown(event: ReactKeyboardEvent<HTMLElement>) {
@@ -517,6 +562,14 @@ export function App() {
           meta={`Week ${displayedReport?.week ?? week}`}
           active={activeTab === "LINEUP"}
           onClick={() => setActiveTab("LINEUP")}
+        />
+        <WorkspaceTabButton
+          id="waivers-tab"
+          panelId="waivers-panel"
+          label="Waivers"
+          meta={currentTeam?.sleeper ? "Sleeper" : "Connect"}
+          active={activeTab === "WAIVERS"}
+          onClick={() => setActiveTab("WAIVERS")}
         />
       </nav>
 
@@ -680,6 +733,25 @@ export function App() {
               />
             </div>
           )}
+      </section>
+
+      <section
+        id="waivers-panel"
+        className="workspace-panel waivers-workspace"
+        role="tabpanel"
+        aria-labelledby="waivers-tab"
+        hidden={activeTab !== "WAIVERS"}
+      >
+        <WaiverPanel
+          report={waiverReport}
+          loading={waiverLoading}
+          error={waiverError}
+          hasSavedTeam={teamId !== null}
+          connectedToSleeper={Boolean(currentTeam?.sleeper)}
+          teamDirty={isTeamDirty}
+          onScan={handleScanWaivers}
+          onOpenTeam={() => setActiveTab("TEAM")}
+        />
       </section>
     </main>
   );

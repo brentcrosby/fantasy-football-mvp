@@ -161,6 +161,18 @@ export async function loadSleeperImportCandidate(
   });
 }
 
+export async function loadSleeperLeagueRosteredPlayerIds(
+  leagueId: string,
+  fetcher: typeof fetch = fetch
+): Promise<string[]> {
+  return withSleeperErrors(async () => {
+    const rostersPayload = await fetchJson(fetcher, `/league/${encodeURIComponent(leagueId)}/rosters`);
+    const rosters = parseProviderPayload(z.array(sleeperRosterSchema).max(100), rostersPayload);
+
+    return [...new Set(rosters.flatMap((roster) => roster.players ?? []))];
+  });
+}
+
 export function translateLineupSlots(rosterPositions: string[]): {
   lineupSlots: LineupSlot[];
   unsupportedLineupSlots: string[];
