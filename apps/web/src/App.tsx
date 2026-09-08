@@ -3,6 +3,7 @@ import {
   type AuthCredentials,
   type AuthenticatedUser,
   DEFAULT_LINEUP_SLOTS,
+  type LeagueOverview,
   type LineupSlot,
   type PersistedFantasyTeam,
   type Player,
@@ -17,6 +18,8 @@ import {
 
 import { AuthScreen, type AuthMode } from "./components/AuthScreen";
 import { LeagueControls, scoringFormatLabel } from "./components/LeagueControls";
+import { LeaguePanel } from "./components/LeaguePanel";
+import { ModelPanel } from "./components/ModelPanel";
 import { ReportPanel } from "./components/ReportPanel";
 import { ReportHistory } from "./components/ReportHistory";
 import { RiskPanel } from "./components/RiskPanel";
@@ -27,6 +30,7 @@ import { WaiverPanel } from "./components/WaiverPanel";
 import {
   createTeam,
   fetchCurrentUser,
+  fetchLeagueOverview,
   fetchPlayers,
   fetchTeams,
   fetchWaiverReport,
@@ -55,12 +59,13 @@ interface TeamSnapshot {
   rosterIds: string[];
 }
 
-type WorkspaceTab = "TEAM" | "ROSTER" | "LINEUP" | "WAIVERS";
+type WorkspaceTab = "TEAM" | "ROSTER" | "LEAGUE" | "LINEUP" | "WAIVERS";
 
-const WORKSPACE_TAB_ORDER: WorkspaceTab[] = ["TEAM", "ROSTER", "LINEUP", "WAIVERS"];
+const WORKSPACE_TAB_ORDER: WorkspaceTab[] = ["TEAM", "ROSTER", "LEAGUE", "LINEUP", "WAIVERS"];
 const WORKSPACE_TAB_IDS: Record<WorkspaceTab, string> = {
   TEAM: "team-tab",
   ROSTER: "roster-tab",
+  LEAGUE: "league-tab",
   LINEUP: "lineup-tab",
   WAIVERS: "waivers-tab"
 };
@@ -103,7 +108,11 @@ export function App() {
   const [waiverReport, setWaiverReport] = useState<WaiverReport | null>(null);
   const [waiverLoading, setWaiverLoading] = useState(false);
   const [waiverError, setWaiverError] = useState<string | null>(null);
+  const [leagueOverview, setLeagueOverview] = useState<LeagueOverview | null>(null);
+  const [leagueLoading, setLeagueLoading] = useState(false);
+  const [leagueError, setLeagueError] = useState<string | null>(null);
   const waiverRequestSequence = useRef(0);
+  const leagueRequestSequence = useRef(0);
 
   const currentInputs = buildReportInputs(week, scoringFormat, scoringRules, lineupSlots, selectedPlayers);
   const currentTeam = teams.find((team) => team.id === teamId) ?? null;
@@ -189,6 +198,19 @@ export function App() {
     };
   }, [currentUser, teamId]);
 
+  useEffect(() => {
+    if (
+      activeTab === "LEAGUE" &&
+      teamId &&
+      currentTeam?.sleeper &&
+      !isTeamDirty &&
+      !leagueOverview &&
+      !leagueLoading
+    ) {
+      void handleLoadLeague();
+    }
+  }, [activeTab, teamId, currentTeam?.sleeper?.leagueId, isTeamDirty]);
+
   async function loadWorkspace() {
     setPlayersLoading(true);
     setTeamLoading(true);
@@ -247,6 +269,7 @@ export function App() {
     );
     clearReportView();
     clearWaiverView();
+    clearLeagueView();
   }
 
   function resetTeamDraft() {
@@ -267,6 +290,7 @@ export function App() {
     setTeamSaveError(null);
     setLoadErrorBlocksSave(false);
     clearWaiverView();
+    clearLeagueView();
     setActiveTab("TEAM");
   }
 
@@ -320,6 +344,7 @@ export function App() {
   function addPlayer(player: Player) {
     setTeamSaveError(null);
     clearWaiverView();
+    clearLeagueView();
     setSelectedPlayers((currentPlayers) => {
       if (currentPlayers.some((currentPlayer) => currentPlayer.id === player.id)) {
         return currentPlayers;
@@ -332,6 +357,7 @@ export function App() {
   function removePlayer(playerId: string) {
     setTeamSaveError(null);
     clearWaiverView();
+    clearLeagueView();
     setSelectedPlayers((currentPlayers) => currentPlayers.filter((player) => player.id !== playerId));
   }
 
@@ -339,6 +365,7 @@ export function App() {
     setTeamName(name);
     setTeamSaveError(null);
     clearWaiverView();
+    clearLeagueView();
   }
 
   function handleScoringFormatChange(nextScoringFormat: ScoringFormat) {
@@ -348,6 +375,7 @@ export function App() {
     }
     setTeamSaveError(null);
     clearWaiverView();
+    clearLeagueView();
   }
 
   async function handleSaveTeam() {
@@ -456,6 +484,30 @@ export function App() {
     }
   }
 
+  async function handleLoadLeague() {
+    if (!teamId || !currentTeam?.sleeper || isTeamDirty || leagueLoading) return;
+
+    const requestSequence = ++leagueRequestSequence.current;
+    setLeagueLoading(true);
+    setLeagueError(null);
+
+    try {
+      const nextOverview = await fetchLeagueOverview(teamId);
+
+      if (leagueRequestSequence.current === requestSequence) {
+        setLeagueOverview(nextOverview);
+      }
+    } catch (apiError) {
+      if (leagueRequestSequence.current === requestSequence) {
+        setLeagueError(errorMessage(apiError, "Something went wrong loading the league."));
+      }
+    } finally {
+      if (leagueRequestSequence.current === requestSequence) {
+        setLeagueLoading(false);
+      }
+    }
+  }
+
   function clearReportView() {
     setReport(null);
     setReportInputs(null);
@@ -468,6 +520,13 @@ export function App() {
     setWaiverReport(null);
     setWaiverError(null);
     setWaiverLoading(false);
+  }
+
+  function clearLeagueView() {
+    leagueRequestSequence.current += 1;
+    setLeagueOverview(null);
+    setLeagueError(null);
+    setLeagueLoading(false);
   }
 
   function handleWorkspaceTabKeyDown(event: ReactKeyboardEvent<HTMLElement>) {
@@ -556,6 +615,14 @@ export function App() {
           onClick={() => setActiveTab("ROSTER")}
         />
         <WorkspaceTabButton
+          id="league-tab"
+          panelId="league-panel"
+          label="League"
+          meta={currentTeam?.sleeper ? "Matchup" : "Connect"}
+          active={activeTab === "LEAGUE"}
+          onClick={() => setActiveTab("LEAGUE")}
+        />
+        <WorkspaceTabButton
           id="lineup-tab"
           panelId="lineup-panel"
           label="Lineup"
@@ -611,6 +678,25 @@ export function App() {
               onScoringFormatChange={handleScoringFormatChange}
             />
           </div>
+      </section>
+
+      <section
+        id="league-panel"
+        className="workspace-panel league-workspace"
+        role="tabpanel"
+        aria-labelledby="league-tab"
+        hidden={activeTab !== "LEAGUE"}
+      >
+        <LeaguePanel
+          overview={leagueOverview}
+          loading={leagueLoading}
+          error={leagueError}
+          hasSavedTeam={teamId !== null}
+          connectedToSleeper={Boolean(currentTeam?.sleeper)}
+          teamDirty={isTeamDirty}
+          onRefresh={handleLoadLeague}
+          onOpenTeam={() => setActiveTab("TEAM")}
+        />
       </section>
 
       <section
@@ -706,6 +792,9 @@ export function App() {
                 <ReportPanel report={displayedReport} statusLabel={viewedSavedReport ? "Saved snapshot" : "Rule-based"} />
                 <div className="dashboard-side">
                   <RiskPanel report={displayedReport} />
+                  {playerCatalogMetadata?.model && (
+                    <ModelPanel model={playerCatalogMetadata.model} report={displayedReport} />
+                  )}
                   <ReportHistory
                     reports={savedReports}
                     loading={reportsLoading}

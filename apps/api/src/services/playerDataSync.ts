@@ -1,6 +1,13 @@
 import { Prisma, type InjuryStatus, type PlayerDataSource, type Position, type PrismaClient } from "@prisma/client";
 import { parse } from "csv-parse/sync";
 import { z } from "zod";
+import type { ExperimentalProjection } from "@fantasy-football/shared";
+
+import {
+  buildExperimentalProjections,
+  projectionObservationKey,
+  readActualPprPoints
+} from "../lib/experimentalProjection.js";
 
 const SYNC_ID = "weekly-player-data";
 const SOURCE_LABEL = "Sleeper + FantasyPros via DynastyProcess";
@@ -11,6 +18,7 @@ const SLEEPER_STATE_URL = "https://api.sleeper.app/v1/state/nfl";
 const SLEEPER_PLAYERS_URL = "https://api.sleeper.app/v1/players/nfl?active=true";
 const WEEKLY_RANKINGS_URL = "https://raw.githubusercontent.com/dynastyprocess/data/master/files/fp_latest_weekly.csv";
 const PLAYER_IDS_URL = "https://raw.githubusercontent.com/dynastyprocess/data/master/files/db_playerids.csv";
+const WEEKLY_STATS_URL = "https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_{season}.csv";
 
 const supportedPositions = new Set<Position>(["QB", "RB", "WR", "TE", "K", "DST"]);
 
@@ -46,6 +54,7 @@ interface RankingRow {
 interface CrosswalkRow {
   fantasypros_id: string;
   sleeper_id: string;
+  gsis_id: string;
 }
 
 interface LivePlayerRecord {
@@ -61,6 +70,8 @@ interface LivePlayerRecord {
   targetShare: null;
   dataSource: PlayerDataSource;
   externalId: string;
+  gsisId: string | null;
+  experimentalProjection: ExperimentalProjection | null;
   season: number;
   projectionWeek: number;
   dataUpdatedAt: Date;
@@ -71,6 +82,7 @@ export interface LivePlayerBatch {
   season: number;
   week: number;
   sourceUpdatedAt: Date;
+  actualPprPoints: Map<string, number>;
 }
 
 export interface PlayerDataSyncResult {
@@ -87,6 +99,7 @@ interface BuildLivePlayerBatchInput {
   sleeperPlayers: unknown;
   rankingsCsv: string;
   crosswalkCsv: string;
+  statsCsvs?: string[];
 }
 
 interface SyncOptions {
@@ -122,10 +135,11 @@ export async function syncLivePlayerData(
     };
   }
 
-  const [sleeperPlayers, rankingsCsv, crosswalkCsv] = await Promise.all([
+  const [sleeperPlayers, rankingsCsv, crosswalkCsv, statsCsvs] = await Promise.all([
     fetchJson(fetcher, SLEEPER_PLAYERS_URL),
     fetchText(fetcher, WEEKLY_RANKINGS_URL),
-    fetchText(fetcher, PLAYER_IDS_URL)
+    fetchText(fetcher, PLAYER_IDS_URL),
+    loadRecentWeeklyStats(fetcher, state.season)
   ]);
 
   const batch = buildLivePlayerBatch({
@@ -133,7 +147,8 @@ export async function syncLivePlayerData(
     week: state.display_week,
     sleeperPlayers,
     rankingsCsv,
-    crosswalkCsv
+    crosswalkCsv,
+    statsCsvs
   });
 
   if (batch.players.length < MINIMUM_LIVE_PLAYERS) {
@@ -164,6 +179,10 @@ export async function syncLivePlayerData(
     }));
   });
   const livePlayerIds = batch.players.map((player) => player.id);
+  const unresolvedObservations = await prismaClient.projectionObservation.findMany({
+    where: { actualPprPoints: null },
+    select: { id: true, season: true, week: true, player: { select: { gsisId: true } } }
+  });
   const operations: Prisma.PrismaPromise<unknown>[] = [
     prismaClient.player.updateMany({
       where: { dataSource: "LIVE", id: { notIn: livePlayerIds } },
@@ -172,7 +191,12 @@ export async function syncLivePlayerData(
     ...batch.players.map((player) =>
       prismaClient.player.upsert({
         where: { id: player.id },
-        create: player,
+        create: {
+          ...player,
+          experimentalProjection: player.experimentalProjection
+            ? (player.experimentalProjection as unknown as Prisma.InputJsonValue)
+            : undefined
+        },
         update: {
           name: player.name,
           position: player.position,
@@ -183,9 +207,13 @@ export async function syncLivePlayerData(
           hasProjection: player.hasProjection,
           projectionStats: Prisma.DbNull,
           projectionSource: player.projectionSource,
+          experimentalProjection: player.experimentalProjection
+            ? (player.experimentalProjection as unknown as Prisma.InputJsonValue)
+            : Prisma.DbNull,
           targetShare: player.targetShare,
           dataSource: player.dataSource,
           externalId: player.externalId,
+          gsisId: player.gsisId,
           season: player.season,
           projectionWeek: player.projectionWeek,
           dataUpdatedAt: player.dataUpdatedAt
@@ -216,6 +244,47 @@ export async function syncLivePlayerData(
             playerId: replacement.seedPlayerId
           }
         }
+      })
+    );
+  }
+
+  for (const player of batch.players) {
+    if (!player.hasProjection) continue;
+
+    const modelProjectedPoints = player.experimentalProjection?.points ?? null;
+    operations.push(
+      prismaClient.projectionObservation.upsert({
+        where: {
+          playerId_season_week: { playerId: player.id, season: batch.season, week: batch.week }
+        },
+        create: {
+          playerId: player.id,
+          season: batch.season,
+          week: batch.week,
+          providerProjectedPoints: player.projectedPoints,
+          modelProjectedPoints
+        },
+        update: {
+          providerProjectedPoints: player.projectedPoints,
+          modelProjectedPoints
+        }
+      })
+    );
+  }
+
+  for (const observation of unresolvedObservations) {
+    if (!observation.player.gsisId) continue;
+
+    const actualPprPoints = batch.actualPprPoints.get(
+      projectionObservationKey(observation.player.gsisId, observation.season, observation.week)
+    );
+
+    if (actualPprPoints === undefined) continue;
+
+    operations.push(
+      prismaClient.projectionObservation.update({
+        where: { id: observation.id },
+        data: { actualPprPoints, resolvedAt: now }
       })
     );
   }
@@ -259,7 +328,8 @@ export function buildLivePlayerBatch({
   week,
   sleeperPlayers,
   rankingsCsv,
-  crosswalkCsv
+  crosswalkCsv,
+  statsCsvs = []
 }: BuildLivePlayerBatchInput): LivePlayerBatch {
   const parsedSleeperPlayers = sleeperPlayersSchema.parse(sleeperPlayers);
   const rankings = parseCsv<RankingRow>(rankingsCsv);
@@ -269,6 +339,12 @@ export function buildLivePlayerBatch({
       .filter((row) => isExternalId(row.fantasypros_id) && isExternalId(row.sleeper_id))
       .map((row) => [row.fantasypros_id, row.sleeper_id])
   );
+  const gsisIdBySleeperId = new Map(
+    crosswalk
+      .filter((row) => isExternalId(row.sleeper_id) && isExternalId(row.gsis_id))
+      .map((row) => [row.sleeper_id, row.gsis_id])
+  );
+  const experimentalProjectionByGsisId = buildExperimentalProjections(statsCsvs, season, week);
   const sourceUpdatedAt = latestSourceDate(rankings);
   const playersById = new Map<string, LivePlayerRecord>();
   const byeWeekByTeam = new Map<string, number>();
@@ -309,6 +385,8 @@ export function buildLivePlayerBatch({
         targetShare: null,
         dataSource: "LIVE",
         externalId: team,
+        gsisId: null,
+        experimentalProjection: null,
         season,
         projectionWeek: week,
         dataUpdatedAt: sourceUpdatedAt
@@ -317,6 +395,7 @@ export function buildLivePlayerBatch({
     }
 
     const sleeperId = sleeperIdByFantasyProsId.get(ranking.fantasypros_id);
+    const gsisId = sleeperId ? gsisIdBySleeperId.get(sleeperId) : undefined;
     const sleeperPlayer = sleeperId ? parsedSleeperPlayers[sleeperId] : undefined;
     const team = normalizeTeam(sleeperPlayer?.team);
 
@@ -343,6 +422,8 @@ export function buildLivePlayerBatch({
       targetShare: null,
       dataSource: "LIVE",
       externalId: sleeperId,
+      gsisId: gsisId ?? null,
+      experimentalProjection: gsisId ? experimentalProjectionByGsisId.get(gsisId) ?? null : null,
       season,
       projectionWeek: week,
       dataUpdatedAt: sourceUpdatedAt
@@ -378,6 +459,10 @@ export function buildLivePlayerBatch({
       targetShare: null,
       dataSource: "LIVE",
       externalId: sleeperId,
+      gsisId: gsisIdBySleeperId.get(sleeperId) ?? null,
+      experimentalProjection: gsisIdBySleeperId.has(sleeperId)
+        ? experimentalProjectionByGsisId.get(gsisIdBySleeperId.get(sleeperId)!) ?? null
+        : null,
       season,
       projectionWeek: week,
       dataUpdatedAt: sourceUpdatedAt
@@ -388,7 +473,8 @@ export function buildLivePlayerBatch({
     players: [...playersById.values()].sort((left, right) => left.name.localeCompare(right.name)),
     season,
     week,
-    sourceUpdatedAt
+    sourceUpdatedAt,
+    actualPprPoints: readActualPprPoints(statsCsvs)
   };
 }
 
@@ -472,4 +558,22 @@ async function fetchSource(fetcher: typeof fetch, url: string): Promise<Response
   }
 
   return response;
+}
+
+async function loadRecentWeeklyStats(fetcher: typeof fetch, season: number): Promise<string[]> {
+  const seasons = [season - 1, season];
+  const results = await Promise.all(
+    seasons.map(async (candidateSeason) => {
+      try {
+        const response = await fetcher(WEEKLY_STATS_URL.replace("{season}", String(candidateSeason)), {
+          signal: AbortSignal.timeout(30_000)
+        });
+        return response.ok ? await response.text() : null;
+      } catch {
+        return null;
+      }
+    })
+  );
+
+  return results.filter((result): result is string => result !== null);
 }

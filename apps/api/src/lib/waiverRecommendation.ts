@@ -11,6 +11,7 @@ import {
 
 const unavailableStatuses = new Set(["OUT", "IR", "SUSPENDED"]);
 const minimumStarterUpgrade = 0.5;
+const minimumQuarterbackStarterUpgrade = 2;
 const minimumDepthUpgrade = 1;
 const maximumRecommendations = 5;
 
@@ -92,7 +93,11 @@ function analyzeCandidate(
     ? roundPoints(adjustedProjection(scoredCandidate) - adjustedProjection(dropCandidate))
     : null;
 
-  if (lineupGain >= minimumStarterUpgrade) {
+  const starterUpgradeThreshold = scoredCandidate.position === "QB"
+    ? minimumQuarterbackStarterUpgrade
+    : minimumStarterUpgrade;
+
+  if (lineupGain >= starterUpgradeThreshold) {
     return {
       player: scoredCandidate,
       dropCandidate,
@@ -102,6 +107,8 @@ function analyzeCandidate(
       reason: `${scoredCandidate.name} raises projected starter output by ${lineupGain.toFixed(1)} points in Week ${input.week}.`
     };
   }
+
+  if (scoredCandidate.position === "QB") return null;
 
   if (projectionGain !== null && projectionGain >= minimumDepthUpgrade) {
     return {

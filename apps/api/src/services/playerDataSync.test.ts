@@ -55,6 +55,8 @@ test("builds current offensive players and defenses from provider fixtures", () 
     targetShare: null,
     dataSource: "LIVE",
     externalId: "JAX",
+    gsisId: null,
+    experimentalProjection: null,
     season: 2026,
     projectionWeek: 1,
     dataUpdatedAt: new Date("2026-09-07T00:00:00.000Z")
@@ -67,6 +69,34 @@ test("builds current offensive players and defenses from provider fixtures", () 
   assert.equal(depthPlayer.projectedPoints, 0);
   assert.equal(depthPlayer.hasProjection, false);
   assert.equal(batch.sourceUpdatedAt.toISOString(), "2026-09-07T00:00:00.000Z");
+});
+
+test("maps GSIS IDs and attaches real-history model forecasts", () => {
+  const statsHeader = [
+    "player_id", "position", "season", "week", "season_type", "fantasy_points_ppr", "attempts", "carries",
+    "targets", "receptions", "passing_tds", "rushing_tds", "receiving_tds"
+  ].join(",");
+  const batch = buildLivePlayerBatch({
+    season: 2026,
+    week: 1,
+    sleeperPlayers: {
+      "4984": { full_name: "Josh Allen", team: "BUF", fantasy_positions: ["QB"], injury_status: null }
+    },
+    rankingsCsv: [rankingHeader, "17298,Josh Allen,QB,BUF,7,19.8,2026-09-07"].join("\n"),
+    crosswalkCsv: ["fantasypros_id,sleeper_id,gsis_id", "17298,4984,gsis-1"].join("\n"),
+    statsCsvs: [[
+      statsHeader,
+      "gsis-1,QB,2025,15,REG,20,30,2,0,0,2,0,0",
+      "gsis-1,QB,2025,16,REG,24,34,3,0,0,3,0,0",
+      "gsis-1,QB,2025,17,REG,18,28,4,0,0,1,1,0"
+    ].join("\n")]
+  });
+  const quarterback = batch.players.find((player) => player.id === "sleeper:4984");
+
+  assert.equal(quarterback?.gsisId, "gsis-1");
+  assert.equal(quarterback?.experimentalProjection?.status, "EXPERIMENTAL");
+  assert.equal(quarterback?.experimentalProjection?.recentGames, 3);
+  assert.equal(batch.actualPprPoints.get("gsis-1:2025:16"), 24);
 });
 
 test("normalizes provider injury labels conservatively", () => {

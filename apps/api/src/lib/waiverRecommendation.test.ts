@@ -38,6 +38,51 @@ test("recommends startable depth when a position has no bench coverage", () => {
   assert.equal(report.recommendations[0]?.dropCandidate, null);
 });
 
+test("does not recommend a backup quarterback behind a healthy starter", () => {
+  const starter = { ...player("starter-qb", "Starter Quarterback", 20), position: "QB" as const };
+  const backup = { ...player("backup-qb", "Backup Quarterback", 18), position: "QB" as const };
+  const report = buildWaiverReport({
+    week: 1,
+    leagueId: "league-1",
+    settings: { scoringFormat: "HALF_PPR", lineupSlots: ["QB"] },
+    roster: [{ player: starter }],
+    availablePlayers: [backup],
+    rosteredPlayerCount: 20
+  });
+
+  assert.deepEqual(report.recommendations, []);
+});
+
+test("omits marginal quarterback changes in a one-QB lineup", () => {
+  const starter = { ...player("starter-qb", "Starter Quarterback", 20), position: "QB" as const };
+  const marginalUpgrade = { ...player("marginal-qb", "Marginal Quarterback", 21), position: "QB" as const };
+  const report = buildWaiverReport({
+    week: 1,
+    leagueId: "league-1",
+    settings: { scoringFormat: "HALF_PPR", lineupSlots: ["QB"] },
+    roster: [{ player: starter }],
+    availablePlayers: [marginalUpgrade],
+    rosteredPlayerCount: 20
+  });
+
+  assert.deepEqual(report.recommendations, []);
+});
+
+test("still recommends a quarterback when the required starter slot is empty", () => {
+  const quarterback = { ...player("waiver-qb", "Waiver Quarterback", 18), position: "QB" as const };
+  const report = buildWaiverReport({
+    week: 1,
+    leagueId: "league-1",
+    settings: { scoringFormat: "HALF_PPR", lineupSlots: ["QB"] },
+    roster: [],
+    availablePlayers: [quarterback],
+    rosteredPlayerCount: 20
+  });
+
+  assert.equal(report.recommendations[0]?.player.id, quarterback.id);
+  assert.equal(report.recommendations[0]?.priority, "STARTER_UPGRADE");
+});
+
 test("excludes unavailable and bye-week free agents", () => {
   const outPlayer = { ...player("out-rb", "Out Back", 20), injuryStatus: "OUT" as const };
   const byePlayer = { ...player("bye-rb", "Bye Back", 20), byeWeek: 1 };

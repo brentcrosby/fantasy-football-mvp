@@ -1,5 +1,6 @@
 import type { Player as PrismaPlayer, Prisma, WeeklyReport } from "@prisma/client";
 import type {
+  ExperimentalProjection,
   PersistedFantasyTeam,
   Player,
   RecommendationReport,
@@ -20,6 +21,7 @@ type TeamWithRoster = Prisma.FantasyTeamGetPayload<{ include: typeof teamWithRos
 
 export function toPlayerDto(player: PrismaPlayer): Player {
   const projectionStats = toNumberRecord(player.projectionStats);
+  const experimentalProjection = toExperimentalProjection(player.experimentalProjection);
   const projectionSource =
     player.projectionSource ??
     (player.dataSource === "LIVE" ? "Sleeper + FantasyPros via DynastyProcess" : "Sample projection data");
@@ -35,8 +37,29 @@ export function toPlayerDto(player: PrismaPlayer): Player {
     hasProjection: player.hasProjection,
     ...(projectionStats ? { projectionStats } : {}),
     projectionSource,
+    ...(experimentalProjection ? { experimentalProjection } : {}),
     ...(player.targetShare === null ? {} : { targetShare: player.targetShare })
   };
+}
+
+function toExperimentalProjection(value: Prisma.JsonValue | null): ExperimentalProjection | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+
+  const { points, low, high, version, scoringFormat, status, recentGames } = value;
+
+  if (
+    typeof points !== "number" ||
+    typeof low !== "number" ||
+    typeof high !== "number" ||
+    typeof version !== "string" ||
+    scoringFormat !== "PPR" ||
+    status !== "EXPERIMENTAL" ||
+    typeof recentGames !== "number"
+  ) {
+    return null;
+  }
+
+  return { points, low, high, version, scoringFormat, status, recentGames };
 }
 
 export function toTeamDto(team: TeamWithRoster): PersistedFantasyTeam {

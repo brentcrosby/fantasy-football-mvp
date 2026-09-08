@@ -28,6 +28,28 @@ export interface Player {
   projectionSource?: string;
   projectionMethod?: ProjectionMethod;
   projectionBreakdown?: ProjectionBreakdownEntry[];
+  experimentalProjection?: ExperimentalProjection;
+}
+
+export interface ExperimentalProjection {
+  points: number;
+  low: number;
+  high: number;
+  version: string;
+  scoringFormat: "PPR";
+  status: "EXPERIMENTAL";
+  recentGames: number;
+}
+
+export interface ProjectionModelSummary {
+  version: string;
+  status: "EXPERIMENTAL";
+  validationSeason: number;
+  trainingRows: number;
+  validationRows: number;
+  modelMae: number;
+  baselineMae: number;
+  sourceLabel: string;
 }
 
 export interface PlayerCatalogMetadata {
@@ -36,6 +58,7 @@ export interface PlayerCatalogMetadata {
   season: number | null;
   week: number | null;
   updatedAt: string | null;
+  model?: ProjectionModelSummary;
 }
 
 export interface PlayerCatalog {
@@ -191,8 +214,81 @@ export interface WaiverReport {
   summary: string;
 }
 
+export interface LeagueRecord {
+  wins: number;
+  losses: number;
+  ties: number;
+}
+
+export interface LeagueTeam {
+  rosterId: number;
+  ownerName: string;
+  teamName: string;
+  isUserTeam: boolean;
+  record: LeagueRecord;
+  pointsFor: number;
+  pointsAgainst: number;
+  projectedPoints: number;
+  actualPoints: number | null;
+  starters: SlotAssignment[];
+  bench: Player[];
+  unmatchedPlayerCount: number;
+}
+
+export interface MatchupPositionEdge {
+  slot: LineupSlot;
+  userProjectedPoints: number;
+  opponentProjectedPoints: number;
+  advantage: "USER" | "OPPONENT" | "EVEN";
+}
+
+export interface LeagueMatchup {
+  matchupId: number;
+  userRosterId: number;
+  opponentRosterId: number;
+  projectedMargin: number;
+  positionEdges: MatchupPositionEdge[];
+}
+
+export interface LeagueOverview {
+  league: SleeperLeagueSummary;
+  week: number;
+  userRosterId: number;
+  teams: LeagueTeam[];
+  matchup: LeagueMatchup | null;
+  projectionSource: string;
+  tradeReport: TradeConsiderationReport;
+}
+
+export type TradeConsiderationRole = "STARTER_UPGRADE" | "DEPTH_TARGET" | "MODEL_BUY_LOW";
+
+export interface TradePartnerSummary {
+  rosterId: number;
+  teamName: string;
+  ownerName: string;
+}
+
+export interface TradeConsideration {
+  targetPlayer: Player;
+  targetTeam: TradePartnerSummary;
+  possibleTradePieces: Player[];
+  role: TradeConsiderationRole;
+  providerUpgrade: number | null;
+  modelGap: number | null;
+  reasons: string[];
+}
+
+export interface TradeConsiderationReport {
+  week: number;
+  scoringFormat: ScoringFormat;
+  considerations: TradeConsideration[];
+  summary: string;
+  modelUsed: boolean;
+}
+
 const FLEX_POSITIONS: Position[] = ["RB", "WR", "TE"];
-const DEPTH_POSITIONS: Position[] = ["QB", "RB", "WR", "TE"];
+const REQUIRED_STARTER_POSITIONS: Position[] = ["QB", "RB", "WR", "TE"];
+const DEPTH_POSITIONS: Position[] = ["RB", "WR", "TE"];
 const UNAVAILABLE_STATUSES: InjuryStatus[] = ["OUT", "IR", "SUSPENDED"];
 
 export const DEFAULT_LINEUP_SLOTS: LineupSlot[] = [
@@ -452,10 +548,14 @@ function buildPositionNeeds(request: RecommendationRequest, starters: SlotAssign
   const starterCounts = countByPosition(starters.map((assignment) => assignment.player));
   const benchCounts = countByPosition(bench.filter((player) => isStartable(player, request.week)));
 
-  for (const position of DEPTH_POSITIONS) {
+  for (const position of REQUIRED_STARTER_POSITIONS) {
     if ((starterCounts[position] ?? 0) === 0) {
       needs.push(`No startable ${position} filled in the current lineup.`);
-    } else if ((benchCounts[position] ?? 0) === 0) {
+    }
+  }
+
+  for (const position of DEPTH_POSITIONS) {
+    if ((starterCounts[position] ?? 0) > 0 && (benchCounts[position] ?? 0) === 0) {
       needs.push(`Limited ${position} depth behind the starters.`);
     }
   }
