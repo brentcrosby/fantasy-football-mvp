@@ -5,6 +5,7 @@ import { ApiError } from "../lib/apiError.js";
 import {
   findSleeperLeagues,
   loadSleeperImportCandidate,
+  loadSleeperLeagueRosteredPlayerIds,
   translateLineupSlots,
   translateScoringFormat
 } from "./sleeperLeagueImport.js";
@@ -61,6 +62,17 @@ test("builds an import candidate from the owned roster and league settings", asy
   assert.deepEqual(candidate.lineupSlots, ["QB", "RB", "RB", "WR", "WR", "TE", "FLEX", "K", "DST"]);
   assert.deepEqual(candidate.sleeperPlayerIds, ["4984", "9221"]);
   assert.deepEqual(candidate.unsupportedLineupSlots, []);
+});
+
+test("collects unique rostered players from every team in a Sleeper league", async () => {
+  const fetcher = fixtureFetch({
+    "/league/123456789/rosters": [
+      { roster_id: 4, owner_id: "other-user", players: ["1111", "2222"] },
+      { roster_id: 7, owner_id: "user-1", players: ["2222", "3333"] }
+    ]
+  });
+
+  assert.deepEqual(await loadSleeperLeagueRosteredPlayerIds("123456789", fetcher), ["1111", "2222", "3333"]);
 });
 
 test("flags unsupported lineup slots and represents nonstandard reception scoring as custom", () => {

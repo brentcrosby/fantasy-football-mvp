@@ -23,6 +23,7 @@ Build a concise full-stack project that proves application development fundament
 7. [x] Sync current weekly player metadata, injuries, bye weeks, and projections.
 8. [x] Preview, import, and refresh current-season Sleeper rosters.
 9. [x] Persist complete league scoring rules, add component-stat scoring, and label provider-total fallbacks.
+10. [x] Scan connected Sleeper leagues and recommend current free-agent upgrades with safe drop candidates.
 
 The live application uses same-origin production serving, startup validation, database health checks, authentication throttling, GitHub CI, a Render Blueprint, and a validated live-data sync with a stable fallback catalog.
 
@@ -43,4 +44,5 @@ The live application uses same-origin production serving, startup validation, da
 - Authorized weekly projection feed with passing, rushing, receiving, kicking, and defense stat components.
 - AI-generated explanation text from structured recommendation results.
 - Prediction model trained against historical fantasy points.
-- Trade and waiver analysis.
+- Trade analysis.
+- Transaction history and completed waiver tracking.
