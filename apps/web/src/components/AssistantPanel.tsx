@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { ArrowUp, LoaderCircle } from "lucide-react";
 
 import type { AssistantReply, AssistantRequest } from "@fantasy-football/shared";
 
@@ -72,8 +73,8 @@ export function AssistantPanel({
     <section className="panel assistant-panel" aria-labelledby="assistant-heading">
       <div className="section-header assistant-header">
         <div>
-          <p className="eyebrow">Decision Support</p>
-          <h2 id="assistant-heading">Ask Your Assistant</h2>
+          <p className="eyebrow">Your fantasy assistant</p>
+          <h2 id="assistant-heading">Let's talk about your team</h2>
         </div>
         <span className="status-pill">AI</span>
       </div>
@@ -84,7 +85,7 @@ export function AssistantPanel({
       {hasSavedTeam && !teamDirty && (
         <>
           <p className="assistant-context">
-            Answers use {teamName || "your saved team"}, the rule-based lineup analysis, and connected Sleeper league context when available.
+            What are you considering for {teamName || "your team"} this week?
           </p>
 
           {messages.length > 0 && (
@@ -122,8 +123,8 @@ export function AssistantPanel({
                 onChange={(event) => setDraft(event.target.value)}
               />
             </label>
-            <button className="generate-button" type="submit" disabled={!canAsk || !draft.trim()}>
-              {loading ? "Thinking..." : "Ask Assistant"}
+            <button className="generate-button" type="submit" title={loading ? "Thinking..." : "Send question"} aria-label={loading ? "Thinking..." : "Send question"} disabled={!canAsk || !draft.trim()}>
+              {loading ? <LoaderCircle size={18} className="spinning"/> : <ArrowUp size={18}/>}
             </button>
           </form>
         </>
@@ -139,7 +140,7 @@ function AssistantGate({ message, onOpenTeam }: { message: string; onOpenTeam: (
   return (
     <div className="assistant-gate">
       <p>{message}</p>
-      <button className="utility-button" type="button" onClick={onOpenTeam}>Open Team Setup</button>
+      <button className="utility-button" type="button" onClick={onOpenTeam}>Open Settings</button>
     </div>
   );
 }

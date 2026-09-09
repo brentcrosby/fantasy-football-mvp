@@ -49,7 +49,6 @@ export function LeaguePanel({
 
   const selectedTeam = overview?.teams.find((team) => team.rosterId === selectedRosterId) ?? null;
   const userTeam = overview?.teams.find((team) => team.isUserTeam) ?? null;
-  const opponentTeam = overview?.teams.find((team) => team.rosterId === overview.matchup?.opponentRosterId) ?? null;
   const alertReport = overview
     ? overview.alertReport ?? {
         week: overview.week,
@@ -92,7 +91,7 @@ export function LeaguePanel({
               className={leagueView === "OVERVIEW" ? "is-active" : undefined}
               onClick={() => setLeagueView("OVERVIEW")}
             >
-              League Overview
+              Standings
             </button>
             <button
               type="button"
@@ -101,7 +100,7 @@ export function LeaguePanel({
               className={leagueView === "TRADES" ? "is-active" : undefined}
               onClick={() => setLeagueView("TRADES")}
             >
-              Trade Finder
+              Trade ideas
               <span>{overview.tradeReport.considerations.length}</span>
             </button>
             <button
@@ -111,14 +110,13 @@ export function LeaguePanel({
               className={leagueView === "ALERTS" ? "is-active" : undefined}
               onClick={() => setLeagueView("ALERTS")}
             >
-              League Alerts
+              Activity
               <span>{alertReport?.alerts.length ?? 0}</span>
             </button>
           </div>
 
           {leagueView === "OVERVIEW" ? (
             <>
-              <MatchupCard overview={overview} userTeam={userTeam} opponentTeam={opponentTeam} />
 
               <div className="league-grid">
                 <section className="panel standings-panel" aria-labelledby="standings-heading">
@@ -128,15 +126,15 @@ export function LeaguePanel({
                       <h3 id="standings-heading">Standings</h3>
                     </div>
                   </div>
-                  <div className="standings-table" role="table" aria-label="League standings">
-                    <div className="standings-row standings-header" role="row">
+                  <div className="standings-table" role="group" aria-label="League standings">
+                    <div className="standings-row standings-header" aria-hidden="true">
                       <span>Rank</span><span>Team</span><span>Record</span><span>PF</span>
                     </div>
                     {overview.teams.map((team, index) => (
                       <button
                         className={`standings-row${team.rosterId === selectedRosterId ? " is-selected" : ""}`}
                         type="button"
-                        role="row"
+                        aria-pressed={team.rosterId === selectedRosterId}
                         key={team.rosterId}
                         onClick={() => setSelectedRosterId(team.rosterId)}
                       >
@@ -319,70 +317,6 @@ function alertTimeLabel(value: string): string {
   return Number.isNaN(date.getTime()) ? "Recent" : date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
-function MatchupCard({
-  overview,
-  userTeam,
-  opponentTeam
-}: {
-  overview: LeagueOverview;
-  userTeam: LeagueTeam;
-  opponentTeam: LeagueTeam | null;
-}) {
-  if (!overview.matchup || !opponentTeam) {
-    return (
-      <section className="panel matchup-panel matchup-empty">
-        <p className="eyebrow">Week {overview.week}</p>
-        <h3>No head-to-head matchup is posted yet</h3>
-        <p>Sleeper has not assigned an opponent for this roster and week.</p>
-      </section>
-    );
-  }
-
-  return (
-    <section className="panel matchup-panel" aria-labelledby="matchup-heading">
-      <div className="matchup-title-row">
-        <div>
-          <p className="eyebrow">Week {overview.week} Matchup</p>
-          <h3 id="matchup-heading">Projected Head-to-Head</h3>
-        </div>
-        <strong className={overview.matchup.projectedMargin >= 0 ? "positive-edge" : "negative-edge"}>
-          {overview.matchup.projectedMargin >= 0 ? "+" : ""}{overview.matchup.projectedMargin.toFixed(1)} projected margin
-        </strong>
-      </div>
-
-      <div className="matchup-score">
-        <MatchupTeam team={userTeam} label="Your Team" />
-        <span className="matchup-versus">VS</span>
-        <MatchupTeam team={opponentTeam} label="Opponent" />
-      </div>
-
-      <div className="position-edge-table">
-        <div className="position-edge-row position-edge-header">
-          <span>Your projection</span><span>Position</span><span>Opponent</span>
-        </div>
-        {overview.matchup.positionEdges.map((edge) => (
-          <div className="position-edge-row" key={edge.slot}>
-            <strong className={edge.advantage === "USER" ? "edge-winner" : undefined}>{edge.userProjectedPoints.toFixed(1)}</strong>
-            <span>{edge.slot}</span>
-            <strong className={edge.advantage === "OPPONENT" ? "edge-winner" : undefined}>{edge.opponentProjectedPoints.toFixed(1)}</strong>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function MatchupTeam({ team, label }: { team: LeagueTeam; label: string }) {
-  return (
-    <div className="matchup-team">
-      <span>{label}</span>
-      <strong>{team.teamName}</strong>
-      <b>{team.projectedPoints.toFixed(1)}</b>
-      {team.actualPoints !== null && <small>{team.actualPoints.toFixed(1)} live points</small>}
-    </div>
-  );
-}
-
 function TeamRoster({ team }: { team: LeagueTeam | null }) {
   return (
     <section className="panel opponent-roster" aria-labelledby="roster-scout-heading">
@@ -425,7 +359,7 @@ function LeagueGate({ message, onOpenTeam }: { message: string; onOpenTeam: () =
   return (
     <div className="waiver-gate">
       <p>{message}</p>
-      <button className="utility-button" type="button" onClick={onOpenTeam}>Open Team Setup</button>
+      <button className="utility-button" type="button" onClick={onOpenTeam}>Open Settings</button>
     </div>
   );
 }

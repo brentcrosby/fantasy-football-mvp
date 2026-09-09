@@ -1,6 +1,11 @@
 import { useState } from "react";
+import { PlayerIdentity } from "./PlayerIdentity";
 
-import type { Player, PlayerCatalogMetadata, Position } from "@fantasy-football/shared";
+import type {
+  Player,
+  PlayerCatalogMetadata,
+  Position,
+} from "@fantasy-football/shared";
 
 interface RosterEditorProps {
   players: Player[];
@@ -13,7 +18,15 @@ interface RosterEditorProps {
   disabled: boolean;
 }
 
-const positionFilters: Array<Position | "ALL"> = ["ALL", "QB", "RB", "WR", "TE", "K", "DST"];
+const positionFilters: Array<Position | "ALL"> = [
+  "ALL",
+  "QB",
+  "RB",
+  "WR",
+  "TE",
+  "K",
+  "DST",
+];
 const maximumVisiblePlayers = 75;
 
 export function RosterEditor({
@@ -24,51 +37,75 @@ export function RosterEditor({
   onRemovePlayer,
   loading,
   error,
-  disabled
+  disabled,
 }: RosterEditorProps) {
   const [query, setQuery] = useState("");
   const [positionFilter, setPositionFilter] = useState<Position | "ALL">("ALL");
+  const [visibleLimit, setVisibleLimit] = useState(maximumVisiblePlayers);
   const selectedPlayerIds = new Set(selectedPlayers.map((player) => player.id));
   const playerPool = [
     ...players,
-    ...selectedPlayers.filter((player) => !players.some((availablePlayer) => availablePlayer.id === player.id))
+    ...selectedPlayers.filter(
+      (player) =>
+        !players.some((availablePlayer) => availablePlayer.id === player.id),
+    ),
   ];
   const normalizedQuery = query.trim().toLowerCase();
-  const filteredPlayers = playerPool.filter((player) => {
-    const matchesPosition = positionFilter === "ALL" || player.position === positionFilter;
-    const matchesQuery =
-      normalizedQuery.length === 0 ||
-      player.name.toLowerCase().includes(normalizedQuery) ||
-      player.nflTeam.toLowerCase().includes(normalizedQuery);
+  const filteredPlayers = playerPool
+    .filter((player) => {
+      const matchesPosition =
+        positionFilter === "ALL" || player.position === positionFilter;
+      const matchesQuery =
+        normalizedQuery.length === 0 ||
+        player.name.toLowerCase().includes(normalizedQuery) ||
+        player.nflTeam.toLowerCase().includes(normalizedQuery);
 
-    return matchesPosition && matchesQuery;
-  });
-  const visiblePlayers = filteredPlayers.slice(0, maximumVisiblePlayers);
+      return matchesPosition && matchesQuery;
+    })
+    .sort(
+      (left, right) =>
+        (right.hasProjection === false ? -1 : right.projectedPoints) -
+        (left.hasProjection === false ? -1 : left.projectedPoints),
+    );
+  const visiblePlayers = filteredPlayers.slice(0, visibleLimit);
 
   return (
-    <section className="panel roster-editor" aria-labelledby="roster-editor-heading">
+    <section
+      className="panel roster-editor"
+      aria-labelledby="roster-editor-heading"
+    >
       <div className="section-header roster-header">
         <div>
-          <p className="eyebrow">Roster Builder</p>
-          <h2 id="roster-editor-heading">Player Pool</h2>
+          <p className="eyebrow">NFL players</p>
+          <h2 id="roster-editor-heading">Player directory</h2>
         </div>
         <span className="roster-count" aria-live="polite">
-          {selectedPlayers.length} selected
+          {selectedPlayers.length} on your roster
         </span>
       </div>
 
       {metadata && (
         <div className="catalog-status">
-          <strong>{metadata.source === "LIVE" ? `${metadata.season} Week ${metadata.week}` : "Sample data"}</strong>
+          <strong>
+            {metadata.source === "LIVE"
+              ? `${metadata.season} Week ${metadata.week}`
+              : "Sample data"}
+          </strong>
           <span>{metadata.sourceLabel}</span>
           {metadata.source === "LIVE" && (
-            <span className={`data-freshness data-freshness-${metadata.freshness.status.toLowerCase()}`}>
+            <span
+              className={`data-freshness data-freshness-${metadata.freshness.status.toLowerCase()}`}
+            >
               {freshnessLabel(metadata.freshness.status)}
             </span>
           )}
-          {metadata.syncedAt && <span>Synced {formatUpdatedAt(metadata.syncedAt)}</span>}
+          {metadata.syncedAt && (
+            <span>Synced {formatUpdatedAt(metadata.syncedAt)}</span>
+          )}
           {metadata.freshness.lastAttemptStatus === "FAILED" && (
-            <span className="data-refresh-warning">Latest refresh failed; showing the previous catalog.</span>
+            <span className="data-refresh-warning">
+              Latest refresh failed; showing the previous catalog.
+            </span>
           )}
         </div>
       )}
@@ -89,17 +126,26 @@ export function RosterEditor({
                 type="search"
                 value={query}
                 placeholder="Name or NFL team"
-                onChange={(event) => setQuery(event.target.value)}
+                onChange={(event) => {
+                  setQuery(event.target.value);
+                  setVisibleLimit(maximumVisiblePlayers);
+                }}
               />
             </label>
-            <div className="position-filters" aria-label="Filter players by position">
+            <div
+              className="position-filters"
+              aria-label="Filter players by position"
+            >
               {positionFilters.map((position) => (
                 <button
                   className={positionFilter === position ? "is-active" : ""}
                   type="button"
                   aria-pressed={positionFilter === position}
                   key={position}
-                  onClick={() => setPositionFilter(position)}
+                  onClick={() => {
+                    setPositionFilter(position);
+                    setVisibleLimit(maximumVisiblePlayers);
+                  }}
                 >
                   {position}
                 </button>
@@ -108,10 +154,15 @@ export function RosterEditor({
           </div>
 
           <p className="player-results-count" aria-live="polite">
-            Showing {visiblePlayers.length} of {filteredPlayers.length} matching players
+            Showing {visiblePlayers.length} of {filteredPlayers.length} matching
+            players
           </p>
 
-          {visiblePlayers.length === 0 && <p className="state-message player-empty">No players match this filter.</p>}
+          {visiblePlayers.length === 0 && (
+            <p className="state-message player-empty">
+              No players match this filter.
+            </p>
+          )}
 
           {visiblePlayers.length > 0 && (
             <ul className="player-list" aria-label="Available players">
@@ -124,21 +175,23 @@ export function RosterEditor({
                 const isSelected = selectedPlayerIds.has(player.id);
 
                 return (
-                  <li className={`player-row${isSelected ? " is-selected" : ""}`} key={player.id}>
-                    <div className="player-identity">
-                      <span className={`position-badge position-${player.position.toLowerCase()}`}>
-                        {player.position}
-                      </span>
-                      <div className="player-main">
-                        <strong>{player.name}</strong>
-                        <span>{player.nflTeam}</span>
-                      </div>
-                    </div>
+                  <li
+                    className={`player-row${isSelected ? " is-selected" : ""}`}
+                    key={player.id}
+                  >
+                    <PlayerIdentity player={player} />
 
-                    <dl className="player-meta" aria-label={`${player.name} details`}>
+                    <dl
+                      className="player-meta"
+                      aria-label={`${player.name} details`}
+                    >
                       <div>
                         <dt>Proj</dt>
-                        <dd>{player.hasProjection === false ? "--" : player.projectedPoints.toFixed(1)}</dd>
+                        <dd>
+                          {player.hasProjection === false
+                            ? "--"
+                            : player.projectedPoints.toFixed(1)}
+                        </dd>
                       </div>
                       <div>
                         <dt>Bye</dt>
@@ -146,7 +199,9 @@ export function RosterEditor({
                       </div>
                       <div>
                         <dt>Status</dt>
-                        <dd className={`injury-status injury-${player.injuryStatus.toLowerCase()}`}>
+                        <dd
+                          className={`injury-status injury-${player.injuryStatus.toLowerCase()}`}
+                        >
                           {statusLabel(player.injuryStatus)}
                         </dd>
                       </div>
@@ -160,7 +215,7 @@ export function RosterEditor({
                         aria-label={`Remove ${player.name} from roster`}
                         onClick={() => onRemovePlayer(player.id)}
                       >
-                        Drop
+                        Remove
                       </button>
                     ) : (
                       <button
@@ -178,6 +233,16 @@ export function RosterEditor({
               })}
             </ul>
           )}
+          {visiblePlayers.length < filteredPlayers.length && (
+            <button
+              className="utility-button more-players"
+              onClick={() =>
+                setVisibleLimit((limit) => limit + maximumVisiblePlayers)
+              }
+            >
+              Show more players
+            </button>
+          )}
         </>
       )}
     </section>
@@ -191,11 +256,13 @@ function formatUpdatedAt(value: string): string {
     hour: "numeric",
     minute: "2-digit",
     timeZone: "UTC",
-    timeZoneName: "short"
+    timeZoneName: "short",
   }).format(new Date(value));
 }
 
-function freshnessLabel(status: PlayerCatalogMetadata["freshness"]["status"]): string {
+function freshnessLabel(
+  status: PlayerCatalogMetadata["freshness"]["status"],
+): string {
   if (status === "FRESH") return "Data current";
   if (status === "STALE") return "Data may be stale";
   return "Data unavailable";
