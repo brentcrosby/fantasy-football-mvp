@@ -1112,6 +1112,14 @@ export function App() {
               hasSavedTeam={teamId !== null}
               connectedToSleeper={Boolean(currentTeam?.sleeper)}
               teamDirty={isTeamDirty}
+              scoringFormat={scoringFormat}
+              scoringRules={scoringRules}
+              lineupSlots={lineupSlots}
+              projectionUpdatedAt={
+                playerCatalogMetadata?.syncedAt ??
+                playerCatalogMetadata?.updatedAt ??
+                null
+              }
               onRefresh={handleLoadLeague}
               onOpenTeam={() => navigate("TEAM")}
             />

@@ -1255,6 +1255,61 @@ body:has(.fantasy-app) {
   color: var(--dim);
   margin-top: 20px;
 }
+.context-export-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 30px;
+  padding: 10px 0 20px;
+  border-bottom: 1px solid var(--line);
+}
+.context-export-header h3 {
+  margin: 4px 0 8px;
+  font-size: 17px;
+}
+.context-export-header p:not(.eyebrow) {
+  max-width: 640px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.context-export-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 8px;
+}
+.context-export-actions .utility-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.context-export-meta {
+  display: flex;
+  gap: 18px;
+  padding: 12px 0;
+  color: var(--dim);
+  font-size: 10px;
+  text-transform: uppercase;
+}
+.context-export-preview {
+  width: 100%;
+  min-height: 520px;
+  resize: vertical;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: #15191c;
+  color: #dce3e7;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 11px;
+  line-height: 1.6;
+}
+.context-export-preview:focus {
+  border-color: var(--green);
+  outline: 1px solid var(--green);
+}
+.context-export-error {
+  margin-top: 12px;
+}
 .settings-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -2049,6 +2104,17 @@ body:has(.fantasy-app) {
   }
   .fantasy-app .league-view-toggle button {
     font-size: 11px;
+  }
+  .context-export-header {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .context-export-actions {
+    flex-wrap: wrap;
+  }
+  .context-export-preview {
+    min-height: 430px;
   }
   .fantasy-app .standings-row {
     padding-inline: 5px;
