@@ -5,8 +5,17 @@ import { App } from "./App";
 import "./styles.css";
 import "./workspace.css";
 
+const DemoApp = React.lazy(() => import("./demo/DemoApp"));
+const isDemo = window.location.pathname.replace(/\/$/, "") === "/demo";
+
 createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
-    <App />
+    {isDemo ? (
+      <React.Suspense fallback={<p role="status">Loading sample league...</p>}>
+        <DemoApp />
+      </React.Suspense>
+    ) : (
+      <App />
+    )}
   </React.StrictMode>
 );

@@ -203,7 +203,13 @@ teamsRouter.get<{ teamId: string }>("/:teamId/league", leagueRateLimit, async (r
     storedAlerts
   });
 
-  response.json({ overview });
+  response.json({
+    overview: {
+      ...overview,
+      fetchedAt: new Date().toISOString(),
+      projectionUpdatedAt: sync.syncedAt.toISOString()
+    }
+  });
 });
 
 teamsRouter.get("/:teamId/reports", async (request, response) => {

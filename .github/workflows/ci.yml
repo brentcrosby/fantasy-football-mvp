@@ -52,3 +52,9 @@ jobs:
 
       - name: Test
         run: npm test
+
+      - name: Install browser for demo checks
+        run: npm exec --workspace @fantasy-football/web -- playwright install --with-deps chromium
+
+      - name: Check desktop and mobile demo
+        run: npm run test:e2e --workspace @fantasy-football/web

@@ -84,10 +84,23 @@ describe("buildLeagueContextText", () => {
     expect(text).toContain("Scoring rules: pass_yd=0.04, rec=0.5");
     expect(text).toContain("Projection data updated: 2026-09-09T11:00:00.000Z");
     expect(text).toContain("Fourth and Long (Brent) vs. Goal Line (Taylor)");
-    expect(text).toContain("Jordan Example | SF | Proj 19.3 | Status Questionable | Bye 14");
+    expect(text).toContain("Jordan Example | QB | SF | Proj 19.3 | Status Questionable | Bye 14");
     expect(text).toContain("Unmatched Sleeper players: 1");
     expect(text).not.toContain("internal-player-id");
     expect(text).not.toContain("private-league-id");
+  });
+  it("identifies the favored opponent and keeps missing projections distinct from zero", () => {
+    const snapshot = structuredClone(overview);
+    snapshot.matchup!.projectedMargin = -4.5;
+    snapshot.teams[0]!.starters[0]!.player.hasProjection = false;
+    snapshot.teams[0]!.starters[0]!.player.byeWeek = 0;
+    snapshot.fetchedAt = "2026-09-09T10:00:00Z";
+    const text = buildLeagueContextText(snapshot, { scoringFormat: "CUSTOM", scoringRules: null, lineupSlots: ["QB"], projectionUpdatedAt: null });
+    expect(text).toContain("4.5 points in favor of Goal Line");
+    expect(text).toContain("Proj Unavailable");
+    expect(text).toContain("Bye Unavailable");
+    expect(text).toContain("Scoring rules: Unavailable");
+    expect(text).toContain("League snapshot fetched: 2026-09-09T10:00:00.000Z");
   });
 });
 
