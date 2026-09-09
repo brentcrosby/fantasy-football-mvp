@@ -1,216 +1,91 @@
 # Fantasy Football Lineup Assistant
 
-Fantasy Football Lineup Assistant is a full-stack MVP for managing a fantasy roster and generating weekly lineup recommendations from roster constraints, scoring format, bye weeks, injury status, and projected points.
+[![CI](https://github.com/brentcrosby/fantasy-football-mvp/actions/workflows/ci.yml/badge.svg)](https://github.com/brentcrosby/fantasy-football-mvp/actions/workflows/ci.yml)
 
-**Live application:** [fantasy-football-lineup-assistant.onrender.com](https://fantasy-football-lineup-assistant.onrender.com/)
+A full-stack fantasy football workspace that brings league rosters, weekly lineup decisions, and AI assistance into one place. Import a Sleeper league, compare teams, review availability, and export league context to your preferred AI assistant.
 
-## MVP Scope
+**[Explore the sample league](https://fantasy-football-lineup-assistant.onrender.com/demo)** · **[Live app](https://fantasy-football-lineup-assistant.onrender.com/)**
 
-- Create and review a fantasy team roster.
-- Register, sign in, and manage teams owned by the current account.
-- Store player position, NFL team, bye week, injury status, weekly projections, and projection provenance.
-- Generate a weekly lineup report with starters, bench players, risk notes, and position needs.
-- Save immutable weekly report snapshots and reopen them from team history.
-- Scan a connected Sleeper league for unrostered players and rank lineup or depth upgrades.
-- Review the current Sleeper matchup, projected position edges, standings, and every league roster.
-- Find possible trade conversations based on mutual roster needs and players outside projected starting lineups.
-- Compare provider projections with an experimental model trained and evaluated on real historical NFL results.
+The sample league requires no account or AI key. Fictional players and scores run in the browser using the same lineup engine and UI components as the signed-in app. Toggle a quarterback's injury status to see the recommendation change. The hosted service may take a moment to wake after inactivity.
 
-## Tech Stack
+![Sample lineup with starter and bench availability](docs/images/lineup-desktop.png)
 
-- React, TypeScript, and Vite for the frontend.
-- Node.js, Express, and TypeScript for the API.
-- PostgreSQL with Prisma for team, settings, player, roster, and report persistence.
-- Server-side sessions stored as token hashes with `HttpOnly` browser cookies.
-- Shared TypeScript package for roster and recommendation types.
-- GitHub Actions for repeatable typecheck, build, and PostgreSQL integration tests.
+## Features
 
-## Project Structure
+- **Manage a team:** import a Sleeper roster or build one manually; save teams and reopen immutable weekly reports.
+- **Review weekly decisions:** automatic lineup recommendations, injury and bye exclusions, position filters, and player explanations.
+- **Scout the league:** compare matchups, standings, every roster, availability alerts, and possible trade partners.
+- **Find waiver options:** exclude league-owned players and rank candidates by projected lineup improvement.
+- **Ask with context:** use the built-in AI assistant or copy/download a league snapshot for another assistant.
+- **Inspect the ML experiment:** compare provider points with a historical ridge-regression PPR model, explicitly labeled experimental.
 
-```text
-apps/
-  api/      Express API and recommendation routes
-  web/      React frontend
-packages/
-  shared/   Shared domain types and lineup engine
-docs/
-  mvp-plan.md
-```
+![Sample league context ready to copy or download](docs/images/context-export-desktop.png)
 
-## Getting Started
+## Engineering
 
-Prerequisites:
+| Layer | Implementation |
+| --- | --- |
+| Frontend | React 19, TypeScript, Vite, responsive workspace |
+| API | Node.js 22+, Express 5, Zod request validation |
+| Persistence | PostgreSQL 16, Prisma migrations, transactions, report snapshots |
+| Authentication | scrypt passwords, hashed session tokens, HttpOnly cookies, ownership checks |
+| Data | Sleeper; FantasyPros totals and identity mappings via DynastyProcess; nflverse |
+| AI | Server-built context, server-only OpenAI key, request limits and failure handling |
+| ML | Python, pandas, scikit-learn; exported coefficients evaluated in TypeScript |
+| Delivery | GitHub Actions, database and browser tests, Docker, Render |
 
-- Node.js 20 or newer.
-- Docker Desktop or another Docker Compose-compatible runtime.
+See [architecture and decisions](docs/architecture.md), [operations](docs/operations.md), and the [model experiment](ml/README.md).
 
-Install dependencies:
+## Run Locally
+
+Requires Node.js **22 or newer**; `.nvmrc` selects 22. To explore the sample league, no database is required:
 
 ```bash
-npm install
+npm ci
+npm run build --workspace @fantasy-football/shared
+npm run dev --workspace @fantasy-football/web
 ```
 
-Copy the environment variables:
+Open the URL Vite prints, followed by `/demo`.
+
+For the full application, also install Docker with Compose:
 
 ```bash
 cp apps/api/.env.example apps/api/.env
 cp apps/web/.env.example apps/web/.env
-```
-
-Start PostgreSQL, apply the migration, seed the stable sample-player catalog, and sync the current weekly player data:
-
-```bash
 docker compose up -d db
+npm run db:generate
 npm run db:deploy
 npm run db:seed
-npm run data:sync
-```
-
-Run the app locally:
-
-```bash
 npm run dev
 ```
 
-The API defaults to `http://localhost:4000`. The Vite frontend will print its local URL in the terminal.
+The frontend defaults to `http://localhost:5173`; the API uses `http://localhost:4000`. Register a local account and build a manual roster. The seed provides fallback sample data. Run `npm run data:sync` to fetch current regular-season data before importing a Sleeper league. Provider availability and supported league formats determine whether import is available.
 
-Accounts, sessions, team ownership, scoring settings, ordered lineup slots, rosters, and saved reports remain authoritative in PostgreSQL. Passwords are hashed with Node.js `scrypt`; raw session tokens are never stored in the database.
+The AI assistant is optional. Set `OPENAI_API_KEY` in **apps/api/.env only** to enable paid API requests. The sample league and context export make no AI calls.
 
-Saved reports are generated on the server from the persisted team and canonical player records. Each entry preserves the team name, scoring settings, roster, projections, availability, and recommendation result as they existed when saved.
-
-## Live Player Data
-
-The sync pipeline joins three structured sources:
-
-- [Sleeper's read-only NFL API](https://docs.sleeper.com/) for current player IDs, teams, fantasy positions, and injury designations.
-- [DynastyProcess player IDs](https://github.com/dynastyprocess/data) to map FantasyPros IDs to Sleeper IDs.
-- DynastyProcess's weekly FantasyPros feed for current-week consensus point projections and bye weeks.
-
-Only a fully parsed and validated batch is activated. The API continues serving the stable sample catalog if no successful live sync exists, and production startup can retain the previous catalog if a provider is temporarily unavailable. Syncs are skipped while the stored batch is less than 24 hours old to respect Sleeper's published usage guidance.
-
-Live projections are tied to the reported NFL week. The UI locks lineup generation to that week, and the API rejects mismatched weeks. Existing sample-player roster memberships are reconciled to matching live players without changing immutable saved report snapshots.
-
-Force a local refresh when validating the importer:
+## Verify
 
 ```bash
-npm --workspace @fantasy-football/api run data:sync -- --force
-```
-
-## Scheduled Player Data Refresh
-
-Each successful or failed refresh attempt is recorded in PostgreSQL. The player pool shows whether its last successful sync is current (within 12 hours), stale, or unavailable. A failed refresh never replaces the last validated catalog.
-
-The included GitHub Actions workflow requests a refresh every six hours and can also be run manually. Its refresh step is skipped until both repository secrets are configured, so deploying this code alone does not expose or refresh through the endpoint:
-
-1. Generate a long random value and set it as `DATA_SYNC_CRON_SECRET` in the Render web service environment.
-2. Add the same `DATA_SYNC_CRON_SECRET` to the GitHub repository's Actions secrets.
-3. Add `PLAYER_DATA_SYNC_URL` to GitHub Actions secrets with `https://fantasy-football-lineup-assistant.onrender.com/api/internal/player-data` (substitute the actual deployed hostname if it changes).
-
-GitHub's scheduled workflows can be delayed, so this is a best-effort portfolio deployment schedule rather than a real-time production job. The protected endpoint accepts only the matching refresh secret and has a daily request limit.
-
-## Sleeper League Import
-
-Authenticated users can enter a Sleeper username, select a current-season NFL league, preview the owned roster, and import it as a normal saved team. Connected teams retain the Sleeper league and roster identity so the same flow can refresh them later without creating duplicates.
-
-The import recognizes Standard, Half PPR, PPR, and custom scoring while preserving Sleeper's complete numeric scoring map. It translates QB, RB, WR, TE, FLEX, K, and DST lineup slots and blocks unsupported starting positions such as superflex and IDP instead of silently changing the league structure. Sleeper's API is read-only, so the application never requests a Sleeper password or modifies the source league.
-
-## AI Assistant
-
-The Assistant tab answers questions about a signed-in user's saved roster. The server builds its own context from the saved team, rule-based lineup analysis, latest saved report, and connected Sleeper league data when available. The model receives no credentials and cannot submit lineup changes, waiver claims, or trades.
-
-Set `OPENAI_API_KEY` only in the API server environment. `OPENAI_MODEL` is optional and defaults to `gpt-5-mini`. The endpoint requires authentication, limits each account to 25 requests per day, validates question length, and does not store model responses through the OpenAI API.
-
-## Scoring-Aware Projections
-
-The recommendation engine can score projected stat components with the saved league rules, including reception values, passing touchdown values, interceptions, yardage, two-point conversions, fumbles, kicking ranges, and provider-supplied bonus counters. Reports calculated this way include a per-player scoring breakdown.
-
-The current DynastyProcess weekly feed exposes only a finished point total, not passing, rushing, receiving, kicking, or defense projection components. Those totals are therefore kept unchanged and labeled as provider projections in the report. The application does not estimate or reverse-engineer stat lines from a total. Connecting an authorized component-stat feed will activate league-scored projections without changing the recommendation contract or stored Sleeper settings.
-
-## Waiver Recommendations
-
-Sleeper-connected teams can scan every roster in their league to identify players who are actually unrostered. The waiver engine compares those projected free agents against the saved team, prioritizes starting-lineup gains and missing depth, and suggests a same-position drop only when that player is outside the resulting recommended lineup.
-
-The scan is read-only. It does not submit claims or modify the Sleeper league, and manual teams must first be imported from Sleeper so league availability can be verified.
-
-The recommendation strategy treats QB as a required starter but not a routine depth target in one-QB leagues. A quarterback is suggested only when the starting slot is unfilled or a free agent raises projected starter output by at least two points. RB, WR, and TE remain eligible for depth recommendations; K and DST do not receive depth recommendations.
-
-## League Center
-
-The League tab loads the connected Sleeper league's current matchup, live points, standings, managers, team names, and rosters. Each roster is run through the same availability and lineup engine as the user's team, producing comparable projected totals and aggregated QB, RB, WR, TE, FLEX, K, and DST matchup edges.
-
-Sleeper players missing from the current projection catalog are counted and disclosed rather than assigned invented values. The view is read-only and can be refreshed without changing the source league.
-
-The Trade Finder in the League tab looks for players on another team's projected bench who address a starting-lineup weakness or meaningful RB/WR depth need. It only shows an idea when the other roster also has a positional need that one of the user's bench players could address. Missing backup QB or TE depth does not create a recommendation by itself.
-
-Trade results are starting points for a conversation, not fair-value judgments or exact package recommendations. Provider projections drive the roster-fit comparison. In PPR leagues, the experimental model can add a secondary buy-low signal, but it does not override the provider projection or claim to predict rest-of-season value.
-
-League Alerts records meaningful same-week player-data changes for the connected league. It highlights injury-status changes and provider-projection moves of at least two points for the user's roster, the current matchup opponent's projected starters, and other projected league starters. The feed deliberately excludes other managers' bench changes and does not represent article-based news coverage.
-
-## Experimental Projection Model
-
-The repository includes a reproducible ridge-regression training pipeline in `ml/`. It downloads nflverse weekly player stats, trains on the 2021-2024 regular seasons, and evaluates once on the held-out 2025 season. Features use only information available before the predicted game: recent PPR output, attempts, carries, targets, receptions, touchdowns, trend, sample size, and position.
-
-On 4,325 held-out player-games, the checked-in model artifact recorded a 4.6067 MAE and 6.3348 RMSE, compared with 4.8428 MAE and 6.8538 RMSE for a three-game rolling-average baseline. The result supports using the model as an experimental comparison, but it does not establish an advantage over the current FantasyPros-derived provider feed.
-
-The live sync maps Sleeper players to nflverse GSIS IDs, calculates model forecasts when at least three prior games exist, and stores provider/model observations for later outcome comparison. The UI labels these forecasts as experimental PPR values and continues using provider projections for lineup and waiver decisions until collected head-to-head results support a change.
-
-Reproduce the artifact:
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r ml/requirements.txt
-npm run ml:train
-```
-
-Historical data comes from the [nflverse data releases](https://github.com/nflverse/nflverse-data) under CC-BY-4.0. Cross-provider GSIS and Sleeper mappings come from the [DynastyProcess data repository](https://github.com/dynastyprocess/data).
-
-Existing teams created before the authentication migration are preserved as unowned legacy records. Authenticated team routes expose only teams owned by the current account.
-
-## Database Commands
-
-Create a development migration after intentionally changing the Prisma schema:
-
-```bash
-npm run db:migrate
-```
-
-Regenerate Prisma Client and re-run the idempotent seed:
-
-```bash
-npm run db:generate
-npm run db:seed
-```
-
-The initial migration is `20260831210000_init_team_persistence`. Do not reset an existing database to resolve migration conflicts; inspect and reconcile the conflict first.
-
-## Integration Tests
-
-Integration tests use the same PostgreSQL server but require the isolated `test` schema. The test command verifies that `DATABASE_URL` contains exactly `schema=test`, applies migrations, runs the player seed twice to verify idempotency, and then starts the API tests. The suite covers authentication, team and report ownership, request validation, immutable report snapshots, and Sleeper preview/import/refresh behavior against local provider fixtures.
-
-```bash
+npm run typecheck
+npm run build
 DATABASE_URL="postgresql://postgres:postgres@localhost:5432/fantasy_football_mvp?schema=test" npm test
+npm exec --workspace @fantasy-football/web -- playwright install chromium
+npm run test:e2e --workspace @fantasy-football/web
 ```
 
-The cleanup guard refuses to run against the development `public` schema. Tests never reset or truncate the database and only remove integration-test teams from the test schema.
+Integration tests require `schema=test`. They apply migrations and seed twice, then exercise authentication, ownership, transactional roster updates, report snapshots, and provider fixtures. Never point tests at production.
 
-## Current Status
+Browser checks run the built app at desktop and mobile sizes: navigation, injury substitution, clipboard contents, downloaded text, and absence of API requests. CI runs these against an isolated PostgreSQL service.
 
-The application is deployed on Render with secure cookie sessions, user-owned PostgreSQL teams, current weekly NFL player data, Sleeper roster imports with full scoring-rule persistence, a deterministic scoring and lineup engine, matchup and league roster analysis, league-aware waiver recommendations, an evaluated experimental projection model, immutable weekly report history, and automated CI. A licensed component-stat projection feed and transaction tracking remain later features.
+## Scope and Limitations
 
-Production must use HTTPS so secure session cookies can be sent. The included deployment serves the frontend and API from one origin; configure `WEB_ORIGIN` only if they are hosted separately.
+- Recommendations do not submit changes to Sleeper. Import matches an entered public Sleeper username; it does not verify external account ownership.
+- Provider projections currently contain finished point totals. Custom scoring is preserved but can only be recalculated when stat components are available.
+- League lineups are app recommendations and may differ from submitted starters. Missing catalog players are disclosed.
+- Trade ideas describe roster fit, not market value. Activity tracks data changes, not a news feed.
+- The committed ML artifact reports MAE **4.6067** vs **4.8428** for a three-game average on **4,325 held-out 2025 player-games**. This is not a measured improvement over FantasyPros or a win-rate claim.
+- Registration and session authentication are implemented; email verification and password recovery are not. AI request counters are per-process and reset on restart.
+- Exports include timestamps and missing-data notes but do not include free-agent listings or all league matchups.
 
-## Render Deployment
-
-The repository includes `render.yaml` for a single same-origin web service and a PostgreSQL database. The Express service serves the built React application, runs pending migrations, seeds the fallback catalog, refreshes live player data when stale, exposes a database-aware `/health` endpoint, and uses secure cookies in production.
-
-To deploy:
-
-1. In Render, create a new Blueprint and connect this GitHub repository.
-2. Review the two resources defined by `render.yaml`.
-3. Apply the Blueprint and wait for the database and web service to become healthy.
-4. Open the generated `onrender.com` URL and verify registration, team saving, recommendation generation, and report history.
-
-The Blueprint selects Render's free web and PostgreSQL plans for initial portfolio testing. Render currently expires free PostgreSQL databases after 30 days and does not provide backups for them. Upgrade the database or use another managed PostgreSQL provider before treating the deployment as durable.
-
-The production server validates `DATABASE_URL`, `PORT`, `NODE_ENV`, and optional `WEB_ORIGIN` values before listening. Registration and login endpoints are limited to 20 attempts per IP every 15 minutes.
+See [operations](docs/operations.md) for deployment and remaining work, [sources](docs/sources.md) for attribution, and [project notes](docs/resume-notes.md) for resume wording and interview preparation.

@@ -710,6 +710,8 @@ test("previews, imports, and refreshes an owned Sleeper roster", async () => {
     const leagueResponse = await apiRequest(`/api/teams/${importedTeam.id}/league`);
     assert.equal(leagueResponse.status, 200);
     const leagueOverview = (leagueResponse.body as { overview: LeagueOverview }).overview;
+    assert.ok(Number.isFinite(Date.parse(leagueOverview.fetchedAt!)));
+    assert.ok(Number.isFinite(Date.parse(leagueOverview.projectionUpdatedAt!)));
     assert.equal(leagueOverview.league.name, "Integration League");
     assert.equal(leagueOverview.teams.length, 2);
     assert.equal(leagueOverview.teams.find((team) => team.isUserTeam)?.teamName, `${testNamePrefix} Sleeper Team`);

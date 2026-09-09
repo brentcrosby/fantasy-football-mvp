@@ -36,7 +36,7 @@ export function AuthScreen({ loading, error, onSubmit }: AuthScreenProps) {
         </div>
         <dl className="auth-scoreboard" aria-label="Application capabilities">
           <div><dt>Weeks</dt><dd>18</dd></div>
-          <div><dt>Formats</dt><dd>3</dd></div>
+          <div><dt>Formats</dt><dd>4</dd></div>
           <div><dt>Engine</dt><dd>Rules</dd></div>
         </dl>
       </section>
@@ -88,6 +88,7 @@ export function AuthScreen({ loading, error, onSubmit }: AuthScreenProps) {
             {loading ? "Working..." : mode === "login" ? "Sign In" : "Create Account"}
           </button>
         </form>
+        <a className="auth-demo-link" href="/demo">Explore a sample league</a>
       </section>
     </main>
   );

@@ -49,7 +49,7 @@ export function LeagueContextExport({
     document.body.append(anchor);
     anchor.click();
     anchor.remove();
-    URL.revokeObjectURL(url);
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
   return (
@@ -58,9 +58,6 @@ export function LeagueContextExport({
         <div>
           <p className="eyebrow">Agent-ready data</p>
           <h3 id="league-context-heading">League Context Export</h3>
-          <p>
-            Copy your current league into ChatGPT, Claude, Gemini, or another assistant without taking screenshots.
-          </p>
         </div>
         <div className="context-export-actions">
           <button className="utility-button" type="button" onClick={() => void copyContext()}>
@@ -93,8 +90,8 @@ export function LeagueContextExport({
           Clipboard access was blocked. Select the preview text and copy it manually, or download the file.
         </p>
       )}
-      <p className="trade-disclosure">
-        This export contains league and roster information only. It does not include your email, password, session, or database IDs.
+      <p className="trade-disclosure" role="status" aria-live="polite">
+        {copyStatus === "COPIED" ? "League context copied. " : ""}Includes league and manager names. Review before sharing with another service.
       </p>
     </section>
   );

@@ -74,7 +74,7 @@ export function LeaguePanel({
     <section className="league-dashboard" aria-labelledby="league-heading">
       <div className="section-header league-page-header">
         <div>
-          <p className="eyebrow">Sleeper League</p>
+          <p className="eyebrow">{overview?.league.status === "sample_data" ? "Sample League" : "Sleeper League"}</p>
           <h2 id="league-heading">{overview?.league.name ?? "League Center"}</h2>
           {overview && <p className="league-source">Week {overview.week} projections from {overview.projectionSource}</p>}
         </div>
@@ -175,6 +175,8 @@ export function LeaguePanel({
             <TradeFinder report={overview.tradeReport} />
           ) : leagueView === "ALERTS" ? (
             <LeagueAlerts report={alertReport!} />
+          ) : teamDirty || loading || error ? (
+            <p role="status" className="state-message">{teamDirty ? "Save or discard team changes before exporting." : loading ? "Refreshing league context..." : "Refresh the league successfully before exporting."}</p>
           ) : (
             <LeagueContextExport
               overview={overview}

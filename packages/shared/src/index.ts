@@ -278,6 +278,8 @@ export interface LeagueMatchup {
 }
 
 export interface LeagueOverview {
+  fetchedAt?: string;
+  projectionUpdatedAt?: string;
   league: SleeperLeagueSummary;
   week: number;
   userRosterId: number;

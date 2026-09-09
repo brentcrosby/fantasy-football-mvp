@@ -39,6 +39,7 @@ describe("LeagueContextExport", () => {
 
   afterEach(() => {
     cleanup();
+    vi.useRealTimers();
     vi.restoreAllMocks();
     writeText.mockReset();
   });
@@ -55,16 +56,27 @@ describe("LeagueContextExport", () => {
   });
 
   it("downloads the generated context as a descriptive text file", () => {
+    vi.useFakeTimers();
     const createObjectUrl = vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:league-context");
     const revokeObjectUrl = vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => undefined);
-    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
+    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (this: HTMLAnchorElement) {
+      expect(this.download).toBe("sunday-league-week-3-context.txt");
+    });
 
     renderExport();
     fireEvent.click(screen.getByRole("button", { name: "Download .txt" }));
 
     expect(createObjectUrl).toHaveBeenCalledOnce();
     expect(click).toHaveBeenCalledOnce();
+    vi.runAllTimers();
     expect(revokeObjectUrl).toHaveBeenCalledWith("blob:league-context");
+  });
+  it("keeps the preview accessible when clipboard permission is denied", async () => {
+    writeText.mockRejectedValueOnce(new Error("Permission denied"));
+    renderExport();
+    fireEvent.click(screen.getByRole("button", { name: "Copy context" }));
+    expect(await screen.findByText(/Clipboard access was blocked/)).toBeTruthy();
+    expect((screen.getByRole("textbox", { name: "League context text" }) as HTMLTextAreaElement).value).toContain("Sunday League");
   });
 });
 
