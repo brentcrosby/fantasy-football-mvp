@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import {
   type AuthCredentials,
+  type AssistantRequest,
   type AuthenticatedUser,
   DEFAULT_LINEUP_SLOTS,
   type LeagueOverview,
@@ -17,6 +18,7 @@ import {
 } from "@fantasy-football/shared";
 
 import { AuthScreen, type AuthMode } from "./components/AuthScreen";
+import { AssistantPanel } from "./components/AssistantPanel";
 import { LeagueControls, scoringFormatLabel } from "./components/LeagueControls";
 import { LeaguePanel } from "./components/LeaguePanel";
 import { ModelPanel } from "./components/ModelPanel";
@@ -29,6 +31,7 @@ import { TeamControls, type TeamPersistenceStatus } from "./components/TeamContr
 import { WaiverPanel } from "./components/WaiverPanel";
 import {
   createTeam,
+  askAssistant,
   fetchCurrentUser,
   fetchLeagueOverview,
   fetchPlayers,
@@ -59,15 +62,16 @@ interface TeamSnapshot {
   rosterIds: string[];
 }
 
-type WorkspaceTab = "TEAM" | "ROSTER" | "LEAGUE" | "LINEUP" | "WAIVERS";
+type WorkspaceTab = "TEAM" | "ROSTER" | "LEAGUE" | "LINEUP" | "WAIVERS" | "ASSISTANT";
 
-const WORKSPACE_TAB_ORDER: WorkspaceTab[] = ["TEAM", "ROSTER", "LEAGUE", "LINEUP", "WAIVERS"];
+const WORKSPACE_TAB_ORDER: WorkspaceTab[] = ["TEAM", "ROSTER", "LEAGUE", "LINEUP", "WAIVERS", "ASSISTANT"];
 const WORKSPACE_TAB_IDS: Record<WorkspaceTab, string> = {
   TEAM: "team-tab",
   ROSTER: "roster-tab",
   LEAGUE: "league-tab",
   LINEUP: "lineup-tab",
-  WAIVERS: "waivers-tab"
+  WAIVERS: "waivers-tab",
+  ASSISTANT: "assistant-tab"
 };
 
 export function App() {
@@ -111,6 +115,8 @@ export function App() {
   const [leagueOverview, setLeagueOverview] = useState<LeagueOverview | null>(null);
   const [leagueLoading, setLeagueLoading] = useState(false);
   const [leagueError, setLeagueError] = useState<string | null>(null);
+  const [assistantLoading, setAssistantLoading] = useState(false);
+  const [assistantError, setAssistantError] = useState<string | null>(null);
   const waiverRequestSequence = useRef(0);
   const leagueRequestSequence = useRef(0);
 
@@ -270,6 +276,7 @@ export function App() {
     clearReportView();
     clearWaiverView();
     clearLeagueView();
+    clearAssistantView();
   }
 
   function resetTeamDraft() {
@@ -291,6 +298,7 @@ export function App() {
     setLoadErrorBlocksSave(false);
     clearWaiverView();
     clearLeagueView();
+    clearAssistantView();
     setActiveTab("TEAM");
   }
 
@@ -345,6 +353,7 @@ export function App() {
     setTeamSaveError(null);
     clearWaiverView();
     clearLeagueView();
+    clearAssistantView();
     setSelectedPlayers((currentPlayers) => {
       if (currentPlayers.some((currentPlayer) => currentPlayer.id === player.id)) {
         return currentPlayers;
@@ -358,6 +367,7 @@ export function App() {
     setTeamSaveError(null);
     clearWaiverView();
     clearLeagueView();
+    clearAssistantView();
     setSelectedPlayers((currentPlayers) => currentPlayers.filter((player) => player.id !== playerId));
   }
 
@@ -366,6 +376,7 @@ export function App() {
     setTeamSaveError(null);
     clearWaiverView();
     clearLeagueView();
+    clearAssistantView();
   }
 
   function handleScoringFormatChange(nextScoringFormat: ScoringFormat) {
@@ -376,6 +387,7 @@ export function App() {
     setTeamSaveError(null);
     clearWaiverView();
     clearLeagueView();
+    clearAssistantView();
   }
 
   async function handleSaveTeam() {
@@ -508,6 +520,25 @@ export function App() {
     }
   }
 
+  async function handleAskAssistant(request: AssistantRequest) {
+    if (!teamId || isTeamDirty || assistantLoading) {
+      throw new Error("Save the current team before asking the assistant.");
+    }
+
+    setAssistantLoading(true);
+    setAssistantError(null);
+
+    try {
+      return await askAssistant(teamId, request);
+    } catch (apiError) {
+      const messageText = errorMessage(apiError, "Something went wrong asking the assistant.");
+      setAssistantError(messageText);
+      throw new Error(messageText);
+    } finally {
+      setAssistantLoading(false);
+    }
+  }
+
   function clearReportView() {
     setReport(null);
     setReportInputs(null);
@@ -527,6 +558,11 @@ export function App() {
     setLeagueOverview(null);
     setLeagueError(null);
     setLeagueLoading(false);
+  }
+
+  function clearAssistantView() {
+    setAssistantError(null);
+    setAssistantLoading(false);
   }
 
   function handleWorkspaceTabKeyDown(event: ReactKeyboardEvent<HTMLElement>) {
@@ -637,6 +673,14 @@ export function App() {
           meta={currentTeam?.sleeper ? "Sleeper" : "Connect"}
           active={activeTab === "WAIVERS"}
           onClick={() => setActiveTab("WAIVERS")}
+        />
+        <WorkspaceTabButton
+          id="assistant-tab"
+          panelId="assistant-panel"
+          label="Assistant"
+          meta={teamId ? "Ask AI" : "Save Team"}
+          active={activeTab === "ASSISTANT"}
+          onClick={() => setActiveTab("ASSISTANT")}
         />
       </nav>
 
@@ -839,6 +883,25 @@ export function App() {
           connectedToSleeper={Boolean(currentTeam?.sleeper)}
           teamDirty={isTeamDirty}
           onScan={handleScanWaivers}
+          onOpenTeam={() => setActiveTab("TEAM")}
+        />
+      </section>
+
+      <section
+        id="assistant-panel"
+        className="workspace-panel assistant-workspace"
+        role="tabpanel"
+        aria-labelledby="assistant-tab"
+        hidden={activeTab !== "ASSISTANT"}
+      >
+        <AssistantPanel
+          key={teamId ?? "new-team"}
+          hasSavedTeam={teamId !== null}
+          teamDirty={isTeamDirty}
+          teamName={teamName}
+          loading={assistantLoading}
+          error={assistantError}
+          onAsk={handleAskAssistant}
           onOpenTeam={() => setActiveTab("TEAM")}
         />
       </section>

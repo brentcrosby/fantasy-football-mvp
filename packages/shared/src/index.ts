@@ -171,6 +171,21 @@ export interface AuthCredentials {
   password: string;
 }
 
+export interface AssistantRequest {
+  message: string;
+  history?: AssistantConversationMessage[];
+}
+
+export interface AssistantConversationMessage {
+  role: "user" | "assistant";
+  text: string;
+}
+
+export interface AssistantReply {
+  answer: string;
+  sources: string[];
+}
+
 export interface SlotAssignment {
   slot: LineupSlot;
   player: Player;

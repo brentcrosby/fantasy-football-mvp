@@ -2694,6 +2694,122 @@ h3 {
   border-top: 1px solid var(--line);
 }
 
+.assistant-panel {
+  display: grid;
+  gap: 18px;
+  padding: 22px;
+}
+
+.assistant-header {
+  margin-bottom: 0;
+}
+
+.assistant-context,
+.assistant-disclosure {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.55;
+}
+
+.assistant-disclosure {
+  color: var(--dim);
+  font-size: 0.72rem;
+}
+
+.assistant-gate,
+.assistant-questions,
+.assistant-messages {
+  display: grid;
+  gap: 10px;
+}
+
+.assistant-gate {
+  align-items: center;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 18px;
+  border: 1px solid var(--line);
+  background: var(--panel-hover);
+}
+
+.assistant-gate p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.assistant-question {
+  width: 100%;
+  padding: 13px 14px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--panel-hover);
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.82rem;
+  text-align: left;
+}
+
+.assistant-question:hover:not(:disabled) {
+  border-color: var(--green);
+  background: var(--panel);
+}
+
+.assistant-messages {
+  max-height: 520px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.assistant-message {
+  display: grid;
+  gap: 6px;
+  max-width: min(780px, 92%);
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  line-height: 1.55;
+}
+
+.assistant-message-user {
+  justify-self: end;
+  border-color: #315238;
+  background: #13251a;
+}
+
+.assistant-message-assistant {
+  justify-self: start;
+  background: var(--panel-hover);
+}
+
+.assistant-message strong,
+.assistant-message small {
+  color: var(--dim);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+}
+
+.assistant-message p {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.assistant-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 12px;
+}
+
+.assistant-form textarea {
+  min-height: 84px;
+  resize: vertical;
+}
+
+.assistant-error {
+  margin: 0;
+}
+
 @media (max-width: 920px) {
   .league-grid {
     grid-template-columns: 1fr;
@@ -2710,7 +2826,7 @@ h3 {
 
 @media (max-width: 640px) {
   .workspace-tabs {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .workspace-tabs span {
@@ -2775,5 +2891,18 @@ h3 {
 
   .trade-card-body {
     grid-template-columns: 1fr;
+  }
+
+  .assistant-panel {
+    padding: 14px;
+  }
+
+  .assistant-gate,
+  .assistant-form {
+    grid-template-columns: 1fr;
+  }
+
+  .assistant-form .generate-button {
+    width: 100%;
   }
 }
