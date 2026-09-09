@@ -49,7 +49,12 @@ export function AssistantPanel({
     setDraft("");
 
     try {
-      const history = messages.slice(-12).map(({ role, text }) => ({ role, text }));
+      // Previous assistant answers can be long. The API only needs the manager's
+      // earlier questions because it rebuilds current roster and league context.
+      const history = messages
+        .filter((message) => message.role === "user")
+        .slice(-6)
+        .map(({ role, text }) => ({ role, text }));
       const reply = await onAsk({ message: trimmedMessage, history });
       setMessages((current) => [...current, { id: nextId + 1, role: "assistant", text: reply.answer, sources: reply.sources }]);
       setNextId((current) => current + 2);
