@@ -22,6 +22,6 @@
     "test": "npm run test --workspace @fantasy-football/api"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   }
 }

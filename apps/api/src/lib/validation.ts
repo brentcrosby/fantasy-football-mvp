@@ -86,6 +86,23 @@ export const authCredentialsSchema = z
   })
   .strict();
 
+export const assistantRequestSchema = z
+  .object({
+    message: z.string().trim().min(1).max(1_200),
+    history: z
+      .array(
+        z
+          .object({
+            role: z.enum(["user", "assistant"]),
+            text: z.string().trim().min(1).max(2_000)
+          })
+          .strict()
+      )
+      .max(12)
+      .optional()
+  })
+  .strict();
+
 export const sleeperUsernameSchema = z.string().trim().min(1).max(50);
 
 export const sleeperLeagueIdSchema = z.string().trim().regex(/^\d+$/, "Sleeper league ID must be numeric.").max(30);

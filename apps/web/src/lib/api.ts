@@ -1,4 +1,6 @@
 import type {
+  AssistantReply,
+  AssistantRequest,
   AuthCredentials,
   AuthenticatedUser,
   LeagueOverview,
@@ -193,6 +195,26 @@ export async function fetchLeagueOverview(teamId: string): Promise<LeagueOvervie
   }
 
   return payload.overview;
+}
+
+export async function askAssistant(teamId: string, request: AssistantRequest): Promise<AssistantReply> {
+  const response = await apiFetch(`/api/assistant/teams/${encodeURIComponent(teamId)}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(request)
+  });
+
+  if (!response.ok) {
+    throw await buildRequestError(response, "Could not get an assistant response.");
+  }
+
+  const payload = (await response.json()) as { reply?: AssistantReply };
+
+  if (!payload.reply || typeof payload.reply.answer !== "string" || !Array.isArray(payload.reply.sources)) {
+    throw new Error("The assistant response was incomplete.");
+  }
+
+  return payload.reply;
 }
 
 export async function fetchWeeklyReports(teamId: string): Promise<SavedWeeklyReport[]> {

@@ -104,7 +104,7 @@ The included GitHub Actions workflow requests a refresh every six hours and can 
 
 1. Generate a long random value and set it as `DATA_SYNC_CRON_SECRET` in the Render web service environment.
 2. Add the same `DATA_SYNC_CRON_SECRET` to the GitHub repository's Actions secrets.
-3. Add `PLAYER_DATA_SYNC_URL` to GitHub Actions secrets with `https://fantasy-football-lineup-assistant.onrender.com/api/internal/player-data-sync` (substitute the actual deployed hostname if it changes).
+3. Add `PLAYER_DATA_SYNC_URL` to GitHub Actions secrets with `https://fantasy-football-lineup-assistant.onrender.com/api/internal/player-data` (substitute the actual deployed hostname if it changes).
 
 GitHub's scheduled workflows can be delayed, so this is a best-effort portfolio deployment schedule rather than a real-time production job. The protected endpoint accepts only the matching refresh secret and has a daily request limit.
 
@@ -113,6 +113,12 @@ GitHub's scheduled workflows can be delayed, so this is a best-effort portfolio 
 Authenticated users can enter a Sleeper username, select a current-season NFL league, preview the owned roster, and import it as a normal saved team. Connected teams retain the Sleeper league and roster identity so the same flow can refresh them later without creating duplicates.
 
 The import recognizes Standard, Half PPR, PPR, and custom scoring while preserving Sleeper's complete numeric scoring map. It translates QB, RB, WR, TE, FLEX, K, and DST lineup slots and blocks unsupported starting positions such as superflex and IDP instead of silently changing the league structure. Sleeper's API is read-only, so the application never requests a Sleeper password or modifies the source league.
+
+## AI Assistant
+
+The Assistant tab answers questions about a signed-in user's saved roster. The server builds its own context from the saved team, rule-based lineup analysis, latest saved report, and connected Sleeper league data when available. The model receives no credentials and cannot submit lineup changes, waiver claims, or trades.
+
+Set `OPENAI_API_KEY` only in the API server environment. `OPENAI_MODEL` is optional and defaults to `gpt-5-mini`. The endpoint requires authentication, limits each account to 25 requests per day, validates question length, and does not store model responses through the OpenAI API.
 
 ## Scoring-Aware Projections
 

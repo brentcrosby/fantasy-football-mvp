@@ -115,11 +115,41 @@ test("requires authentication for team routes", async () => {
   assert.equal((await apiRequest("/api/sleeper/leagues?username=testcoach", { cookie: null })).status, 401);
   assert.equal((await apiRequest("/api/teams/unowned/waivers", { cookie: null })).status, 401);
   assert.equal((await apiRequest("/api/teams/unowned/league", { cookie: null })).status, 401);
+  assert.equal((await apiRequest("/api/assistant/teams/unowned", { method: "POST", body: { message: "Help" }, cookie: null })).status, 401);
   assert.equal(
     (await apiRequest("/api/teams/unowned/reports", { method: "POST", body: { week: 1 }, cookie: null })).status,
     401
   );
   assert.equal((await apiRequest("/api/auth/logout", { method: "POST", cookie: null })).status, 204);
+});
+
+test("validates assistant requests and reports missing AI configuration without calling a provider", async () => {
+  const team = await createTeam("assistant validation", ["p1"]);
+  const invalid = await apiRequest(`/api/assistant/teams/${team.id}`, { method: "POST", body: { message: "" } });
+
+  assert.equal(invalid.status, 400);
+
+  const previousApiKey = process.env.OPENAI_API_KEY;
+  delete process.env.OPENAI_API_KEY;
+
+  try {
+    const unconfigured = await apiRequest(`/api/assistant/teams/${team.id}`, {
+      method: "POST",
+      body: { message: "Who should I start?", history: [{ role: "user", text: "Help with my lineup." }] }
+    });
+
+    assert.equal(unconfigured.status, 503);
+    assert.equal(
+      (unconfigured.body as { error: string }).error,
+      "The AI assistant is not configured yet. Add OPENAI_API_KEY to the server environment."
+    );
+  } finally {
+    if (previousApiKey === undefined) {
+      delete process.env.OPENAI_API_KEY;
+    } else {
+      process.env.OPENAI_API_KEY = previousApiKey;
+    }
+  }
 });
 
 test("reports database readiness", async () => {
