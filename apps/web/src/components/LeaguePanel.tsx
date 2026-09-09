@@ -5,9 +5,13 @@ import type {
   LeagueAlertScope,
   LeagueAlertType,
   LeagueTeam,
+  ScoringFormat,
+  ScoringRules,
   TradeConsiderationReport,
   TradeConsiderationRole
 } from "@fantasy-football/shared";
+
+import { LeagueContextExport } from "./LeagueContextExport";
 
 interface LeaguePanelProps {
   overview: LeagueOverview | null;
@@ -16,6 +20,10 @@ interface LeaguePanelProps {
   hasSavedTeam: boolean;
   connectedToSleeper: boolean;
   teamDirty: boolean;
+  scoringFormat: ScoringFormat;
+  scoringRules: ScoringRules | null;
+  lineupSlots: string[];
+  projectionUpdatedAt: string | null;
   onRefresh: () => void;
   onOpenTeam: () => void;
 }
@@ -27,11 +35,15 @@ export function LeaguePanel({
   hasSavedTeam,
   connectedToSleeper,
   teamDirty,
+  scoringFormat,
+  scoringRules,
+  lineupSlots,
+  projectionUpdatedAt,
   onRefresh,
   onOpenTeam
 }: LeaguePanelProps) {
   const [selectedRosterId, setSelectedRosterId] = useState<number | null>(null);
-  const [leagueView, setLeagueView] = useState<"OVERVIEW" | "TRADES" | "ALERTS">("OVERVIEW");
+  const [leagueView, setLeagueView] = useState<"OVERVIEW" | "TRADES" | "ALERTS" | "EXPORT">("OVERVIEW");
 
   useEffect(() => {
     if (!overview) {
@@ -113,6 +125,15 @@ export function LeaguePanel({
               Activity
               <span>{alertReport?.alerts.length ?? 0}</span>
             </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={leagueView === "EXPORT"}
+              className={leagueView === "EXPORT" ? "is-active" : undefined}
+              onClick={() => setLeagueView("EXPORT")}
+            >
+              Context export
+            </button>
           </div>
 
           {leagueView === "OVERVIEW" ? (
@@ -152,8 +173,16 @@ export function LeaguePanel({
             </>
           ) : leagueView === "TRADES" ? (
             <TradeFinder report={overview.tradeReport} />
-          ) : (
+          ) : leagueView === "ALERTS" ? (
             <LeagueAlerts report={alertReport!} />
+          ) : (
+            <LeagueContextExport
+              overview={overview}
+              scoringFormat={scoringFormat}
+              scoringRules={scoringRules}
+              lineupSlots={lineupSlots}
+              projectionUpdatedAt={projectionUpdatedAt}
+            />
           )}
         </>
       )}
